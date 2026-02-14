@@ -1,157 +1,197 @@
-# Terraform AWS Infrastructure Scripts
+# Terraform Enterprise AWS Infrastructure
 
-A comprehensive collection of Terraform configurations for deploying and managing AWS infrastructure. This project includes multiple examples ranging from simple EC2 instances to complex modularized enterprise-grade deployments.
+A production-ready Terraform configuration for deploying a complete AWS infrastructure setup. This project demonstrates enterprise-grade infrastructure as code practices with modular design, multi-environment support, and remote state management.
 
-## Table of Contents
+## 📋 Table of Contents
 
-1. [Project Overview](#project-overview)
-2. [Project Structure](#project-structure)
-3. [Prerequisites](#prerequisites)
-4. [AWS Account Setup](#aws-account-setup)
-5. [General Terraform Workflow](#general-terraform-workflow)
-6. [Projects Guide](#projects-guide)
-   - [01_EC2 - Basic EC2 with Dev/Prod Environments](#01ec2---basic-ec2-with-devprod-environments)
-   - [02_multi_ec2 - Multiple EC2 Instances](#02multi_ec2---multiple-ec2-instances)
-   - [03_Terraform_Modules - Modular EC2 and S3](#03terraform_modules---modular-ec2-and-s3)
-   - [04_ec2 - Single EC2 Instance](#04ec2---single-ec2-instance)
-   - [05_DemoEC2 - Demo EC2 Setup](#05demoec2---demo-ec2-setup)
-   - [06-Module - Multi-Module EC2 and S3](#06-module---multi-module-ec2-and-s3)
-   - [terraform-enterprise-aws - Enterprise VPC Setup](#terraform-enterprise-aws---enterprise-vpc-setup)
-7. [Commands Reference](#commands-reference)
-8. [State Management](#state-management)
-9. [Best Practices](#best-practices)
-10. [Troubleshooting](#troubleshooting)
+1. [Overview](#overview)
+2. [Architecture](#architecture)
+3. [Project Structure](#project-structure)
+4. [Prerequisites](#prerequisites)
+5. [Quick Start](#quick-start)
+6. [Setup Guide](#setup-guide)
+7. [Configuration](#configuration)
+8. [Commands Reference](#commands-reference)
+9. [Modules Documentation](#modules-documentation)
+10. [Environment Management](#environment-management)
+11. [State Management](#state-management)
+12. [Troubleshooting](#troubleshooting)
+13. [Best Practices](#best-practices)
+14. [Security](#security)
 
 ---
 
-## Project Overview
+## Overview
 
-This Terraform project collection demonstrates various AWS infrastructure deployment patterns:
+The **terraform-enterprise-aws** project provides a scalable, modular infrastructure deployment for AWS with the following characteristics:
 
-- **Basic EC2 Deployment**: Simple single Instance deployments
-- **Multi-Instance Management**: Using count meta-arguments to manage multiple resources
-- **Modular Architecture**: Reusable Terraform modules for scalable infrastructure
-- **Multi-Environment Setup**: Dev and Production environment management
-- **Enterprise Architecture**: Complete VPC setup with security groups and EC2 instances
+### Key Features
 
-### Technologies Used
+✅ **Modular Architecture**
+- Separated VPC, Security Group, and EC2 modules
+- Reusable components for different use cases
+- DRY (Don't Repeat Yourself) principle
 
-- **Terraform**: Infrastructure as Code tool (version >= 1.5.0)
-- **AWS Provider**: Terraform AWS provider (version ~> 5.0)
-- **AWS Services**: EC2, VPC, S3, Security Groups, Key Pairs
+✅ **Multi-Environment Support**
+- Separate configurations for `dev` and `prod` environments
+- Environment-specific variable files
+- State isolation via workspaces or separate backends
+
+✅ **Enterprise Grade**
+- Automated tagging for cost tracking
+- Default tags applied to all resources
+- Organized file structure following best practices
+- Remote state backend support (S3)
+
+✅ **Version Controlled**
+- Terraform version constraint (>= 1.5.0)
+- AWS provider version constraint (~> 5.0)
+- `.terraform.lock.hcl` for dependency locking
+- GitHub Actions CI/CD support
+
+✅ **CI/CD Ready**
+- GitHub Actions workflow included
+- Automated planning and validation
+- Policy as code support
+
+### What Gets Deployed
+
+```
+AWS Infrastructure Components:
+├── VPC (Virtual Private Cloud)
+│   ├── Public Subnet
+│   ├── Internet Gateway
+│   ├── Route Table
+│   └── Network ACLs
+├── Security Group
+│   ├── Inbound Rules (SSH)
+│   └── Outbound Rules (All Traffic)
+└── EC2 Instance
+    ├── EBS Root Volume
+    ├── Security Group Attachment
+    ├── Public IP/Elastic IP
+    └── Key Pair Association
+```
+
+---
+
+## Architecture
+
+### Infrastructure Diagram
+
+```
+┌─────────────────────────────────────────────────────────┐
+│                    AWS Account                          │
+├─────────────────────────────────────────────────────────┤
+│                                                         │
+│  ┌───────────────────────────────────────────────────┐ │
+│  │            VPC (vpc_cidr: 10.0.0.0/16)           │ │
+│  │                                                   │ │
+│  │  ┌─────────────────────────────────────────────┐ │ │
+│  │  │   Public Subnet (10.0.1.0/24)              │ │ │
+│  │  │   - map_public_ip_on_launch: true          │ │ │
+│  │  │                                             │ │ │
+│  │  │   ┌──────────────────────────────────────┐ │ │ │
+│  │  │   │      EC2 Instance                    │ │ │ │
+│  │  │   │  ┌─────────────────────────────────┐ │ │ │ │
+│  │  │   │  │ Security Group (enterprise-sg)  │ │ │ │ │
+│  │  │   │  │ - Port 22 (SSH): 0.0.0.0/0     │ │ │ │ │
+│  │  │   │  │ - Outbound: All Traffic         │ │ │ │ │
+│  │  │   │  └─────────────────────────────────┘ │ │ │ │
+│  │  │   │                                       │ │ │ │
+│  │  │   │ - Instance Type: t3.micro (dev)      │ │ │ │
+│  │  │   │ - AMI: Amazon Linux 2                │ │ │ │
+│  │  │   │ - Key Pair: devops (dev)             │ │ │ │
+│  │  │   └──────────────────────────────────────┘ │ │ │
+│  │  │                                             │ │ │
+│  │  └─────────────────────────────────────────────┘ │ │
+│  │                   ↕                              │ │
+│  │          Internet Gateway (IGW)                 │ │
+│  │                   ↕                              │ │
+│  │          Route Table                            │ │
+│  │         (0.0.0.0/0 → IGW)                       │ │
+│  │                                                   │ │
+│  └───────────────────────────────────────────────────┘ │
+│                                                         │
+└─────────────────────────────────────────────────────────┘
+```
+
+### Data Flow
+
+1. **Terraform Modules** → Read configuration
+2. **AWS Provider** → Authenticate to AWS
+3. **VPC Module** → Create networking
+4. **Security Group Module** → Create firewall rules
+5. **EC2 Module** → Launch compute instance
+6. **Terraform State** → Store infrastructure state (local or S3)
 
 ---
 
 ## Project Structure
 
+### Complete Directory Layout
+
 ```
-Terraform-Script/
-├── 01_EC2/                          # Basic EC2 with multi-environment support
-│   ├── main.tf                      # EC2, Security Group, Key Pair configuration
-│   ├── variables.tf                 # Input variables
-│   ├── output.tf                    # Output values
-│   ├── dev.tfvars                   # Development environment variables
-│   ├── prod.tfvars                  # Production environment variables
-│   └── terraform.tfstate.d/         # State storage for different workspaces
-│       ├── dev/
-│       └── prod/
+terraform-enterprise-aws/
+├── 📄 main.tf                          # Root module - calls other modules
+├── 📄 provider.tf                      # AWS provider configuration
+├── 📄 versions.tf                      # Terraform and provider constraints
+├── 📄 variables.tf                     # Input variables declaration
+├── 📄 outputs.tf                       # Output values
+├── 📄 locals.tf                        # Local variables
+├── 📄 backend.tf                       # State backend configuration
 │
-├── 02_multi_ec2/                    # Multiple EC2 instances using count
-│   ├── main.tf                      # Multiple EC2 instances configuration
-│   ├── variables.tf                 # Input variables
-│   ├── outputs.tf                   # Output values
-│   ├── terraform.tfvars             # Default variables
-│   ├── terraform.tfstate            # Current state
-│   └── terraform.tfstate.backup     # State backup
+├── 📁 modules/                         # Reusable modules
+│   ├── 📁 vpc/                         # VPC module (networking)
+│   │   ├── 📄 main.tf                  # VPC resources
+│   │   ├── 📄 variables.tf             # VPC input variables
+│   │   └── 📄 outputs.tf               # VPC outputs
+│   │
+│   ├── 📁 security-group/              # Security group module (firewall)
+│   │   ├── 📄 main.tf                  # Security group resources
+│   │   ├── 📄 variables.tf             # Input variables
+│   │   └── 📄 outputs.tf               # Outputs
+│   │
+│   └── 📁 ec2/                         # EC2 module (compute)
+│       ├── 📄 main.tf                  # EC2 instance resources
+│       ├── 📄 variables.tf             # Input variables
+│       └── 📄 outputs.tf               # Outputs
 │
-├── 03_Terraform_Modules/            # Reusable modules for EC2 and S3
-│   ├── main.tf                      # Module calls
-│   ├── variables.tf                 # Input variables
-│   ├── output.tf                    # Output values
-│   ├── terraform.tfvars             # Default variables
-│   ├── modules/
-│   │   ├── ec2_instance/            # EC2 reusable module
-│   │   │   ├── main.tf
-│   │   │   ├── variables.tf
-│   │   │   └── outputs.tf
-│   │   └── s3_bucket/               # S3 reusable module
-│   │       ├── main.tf
-│   │       ├── variable.tf
-│   │       └── output.tf
-│   └── terraform.tfstate*          # State files
+├── 📁 .github/                         # GitHub configuration
+│   └── 📁 workflows/
+│       └── 📄 terraform.yml            # CI/CD pipeline
 │
-├── 04_ec2/                          # Simple EC2 instance
-│   ├── main.tf                      # EC2 configuration
-│   ├── input-var.tf                 # Input variables
-│   ├── out-var.tf                   # Output variables
-│   └── terraform.tfstate*           # State files
+├── 📄 dev.tfvars                       # Development environment variables
+├── 📄 prod.tfvars                      # Production environment variables
+├── 📄 backend-dev.hcl                  # Development backend config
+├── 📄 backend-prod.hcl                 # Production backend config
 │
-├── 05_DemoEC2/                      # Demo EC2 setup
-│   ├── main.tf                      # EC2 configuration
-│   ├── input-vars.tf                # Input variables
-│   ├── output-vars.tf               # Output variables
-│   └── terraform.tfstate*           # State files
+├── 📄 dev.tfplan                       # Saved dev execution plan
+├── 📄 .gitignore                       # Git ignore patterns
+├── 📄 .terraform.lock.hcl              # Dependency lock file
 │
-├── 06-Module/                       # Modularized infrastructure
-│   ├── main.tf                      # Module calls
-│   ├── provider.tf                  # AWS Provider configuration
-│   ├── variable.tf                  # Input variables
-│   ├── output.tf                    # Output values
-│   ├── dev.tfvars                   # Development variables
-│   ├── prod.tfvars                  # Production variables
-│   ├── EC2/                         # EC2 module
-│   │   ├── main.tf
-│   │   ├── variable.tf
-│   │   └── output.tf
-│   ├── S3/                          # S3 module
-│   │   └── *
-│   └── terraform.tfstate.d/         # Workspace states
-│       ├── dev/
-│       └── prod/
+├── 📁 .terraform/                      # Terraform working directory
+│   ├── 📁 modules/
+│   ├── 📁 providers/
+│   └── 📄 terraform.tfstate            # Local state file (optional)
 │
-├── terraform-enterprise-aws/        # Enterprise-grade complete setup
-│   ├── main.tf                      # Main configuration calling modules
-│   ├── provider.tf                  # AWS Provider configuration
-│   ├── versions.tf                  # Terraform and provider versions
-│   ├── variables.tf                 # Input variables
-│   ├── outputs.tf                   # Output values
-│   ├── locals.tf                    # Local variables
-│   ├── backend.tf                   # Backend configuration
-│   ├── dev.tfvars                   # Development variables
-│   ├── prod.tfvars                  # Production variables
-│   ├── backend-dev.hcl              # Development backend configuration
-│   ├── backend-prod.hcl             # Production backend configuration
-│   ├── dev.tfplan                   # Saved Terraform plan for dev
-│   ├── modules/
-│   │   ├── vpc/                     # VPC module
-│   │   │   ├── main.tf
-│   │   │   ├── variables.tf
-│   │   │   └── outputs.tf
-│   │   ├── security-group/          # Security Group module
-│   │   │   ├── main.tf
-│   │   │   ├── variables.tf
-│   │   │   └── outputs.tf
-│   │   └── ec2/                     # EC2 module
-│   │       ├── main.tf
-│   │       ├── variables.tf
-│   │       └── outputs.tf
-│   └── terraform.tfstate*           # State files
-│
-└── README.md                        # This file
+└── 📄 README.md                        # This file
 ```
 
-### File Type Descriptions
+### File Type Guide
 
-- **main.tf**: Primary configuration file containing resource definitions
-- **variables.tf / input*.tf**: Input variable definitions for customization
-- **outputs.tf / output*.tf**: Output values returned after resource creation
-- **provider.tf**: AWS provider and authentication configuration
-- **versions.tf**: Terraform and provider version requirements
-- **backend.tf**: Remote state backend configuration
-- **locals.tf**: Local variable definitions
-- ***.tfvars**: Variable value files for different environments
-- **terraform.tfstate**: Current state file (not recommended for version control)
-- **terraform.tfstate.backup**: Automatic state backup
+| File | Purpose | When to Edit |
+|------|---------|--------------|
+| `main.tf` | Module calls and resource orchestration | When adding/removing modules |
+| `provider.tf` | AWS authentication and configuration | When changing region or tags |
+| `versions.tf` | Terraform and provider version constraints | When upgrading Terraform |
+| `variables.tf` | Input variable definitions | When adding new variables |
+| `outputs.tf` | Output values from modules | When exposing new data |
+| `locals.tf` | Local computed values | When creating reusable values |
+| `backend.tf` | State file location and config | When changing state storage |
+| `*.tfvars` | Environment-specific values | Before each deployment |
+| `.terraform.lock.hcl` | Provider version lock (auto-generated) | Never manually edit |
+| `.gitignore` | Git exclusion patterns | When adding new file types to ignore |
 
 ---
 
@@ -159,1045 +199,1126 @@ Terraform-Script/
 
 ### Required Software
 
-1. **Terraform** (>= 1.5.0)
-   ```bash
-   # Windows with Chocolatey
-   choco install terraform
-   
-   # Windows with Scoop
-   scoop install terraform
-   
-   # Or download from https://www.terraform.io/downloads.html
-   ```
+#### 1. Terraform (>= 1.5.0)
 
-2. **AWS CLI** (v2)
-   ```bash
-   # Windows - Download from https://aws.amazon.com/cli/
-   # Or use Chocolatey
-   choco install awscli
-   ```
+```powershell
+# Install via Chocolatey (Windows)
+choco install terraform
 
-3. **Git** (for version control)
-   ```bash
-   choco install git
-   ```
+# Or install manually
+# Download from: https://www.terraform.io/downloads.html
 
-### Verify Installation
+# Verify installation
+terraform version
+```
 
-```bash
-terraform --version
+Expected output:
+```
+Terraform v1.5.0 (or newer)
+on windows_amd64
+```
+
+#### 2. AWS CLI v2
+
+```powershell
+# Install via Chocolatey (Windows)
+choco install awscli
+
+# Or install manually
+# Download from: https://aws.amazon.com/cli/
+
+# Verify installation
 aws --version
+```
+
+Expected output:
+```
+aws-cli/2.x.x...
+```
+
+#### 3. Git (for version control)
+
+```powershell
+# Install via Chocolatey (Windows)
+choco install git
+
+# Verify installation
 git --version
 ```
 
+#### 4. SSH Client (for EC2 access)
+
+Built into Windows 10/11, or use:
+
+```powershell
+# Check if SSH is available
+ssh -V
+
+# If not available, install via:
+Add-WindowsCapability -Online -Name OpenSSH.Client~~~~0.0.1.0
+```
+
+#### 5. Text Editor/IDE (Optional but recommended)
+
+Choose one:
+- **Visual Studio Code** (recommended): `choco install vscode`
+- **Terraform Cloud IDE`: Free web-based option
+- **JetBrains IntelliJ IDEA**: Full IDE with Terraform support
+
 ### System Requirements
 
-- Windows 10/11 with PowerShell or Command Prompt
-- Internet connection for AWS API calls
-- Sufficient AWS account limits for resources
-- Approximately 2GB free disk space
+- **OS**: Windows 10 or Windows 11
+- **RAM**: Minimum 2GB, Recommended 4GB+
+- **Storage**: 500MB free space
+- **Internet**: Required for AWS API calls
+- **Administrator Access**: For installing software (Chocolatey)
 
----
+### AWS Account Setup
 
-## AWS Account Setup
+#### Create AWS Account
 
-### 1. Create AWS Account
+1. Go to https://aws.amazon.com/
+2. Click "Create an AWS Account"
+3. Follow the registration process
+4. Set up billing information
+5. Verify email and phone number
 
-If you don't have an AWS account, create one at https://aws.amazon.com/
+#### Create IAM User for Terraform
 
-### 2. Create IAM User with Programmatic Access
-
-```bash
-# Steps:
-# 1. Go to AWS Management Console
-# 2. Navigate to IAM > Users > Create user
-# 3. Enable "Provide user access to the AWS Management Console"
-# 4. Set custom password or auto-generated
-# 5. Skip permission groups (we'll add policies)
-# 6. Go to Users > Select created user
-# 7. Click "Security credentials" tab
-# 8. Create access key > Application running outside AWS
-# 9. Download CSV with Access Key ID and Secret Access Key
+```
+1. Login to AWS Management Console
+2. Navigate to IAM (Identity and Access Management)
+3. Click Users → Create User
+4. Enter Username: terraform-user (or your preferred name)
+5. Check "Provide user access to AWS Management Console"
+6. Set Custom password or Auto-generated password
+7. Click Next → Permissions
+8. Attach Policies:
+   ✓ AmazonEC2FullAccess
+   ✓ AmazonVPCFullAccess
+   ✓ AmazonS3FullAccess (for remote state)
+   ✓ IAMFullAccess (if creating roles)
+9. Click Next → Tags (optional)
+10. Click Create User
 ```
 
-### 3. Attach Required IAM Policies
+#### Generate Access Keys
 
-Attach these managed policies to your IAM user:
-- `AmazonEC2FullAccess`
-- `AmazonS3FullAccess`
-- `AmazonVPCFullAccess`
-- `IAMFullAccess` (for creating roles if needed)
+```
+1. Select the IAM user you created
+2. Go to Security credentials tab
+3. Under "Access keys" section, click "Create access key"
+4. Choose "Application running outside AWS"
+5. Click Next
+6. Download the .csv file with:
+   - Access Key ID
+   - Secret Access Key
+```
 
-### 4. Configure AWS Credentials
+⚠️ **IMPORTANT**: Save the CSV file securely. You won't be able to see the secret key again!
 
-#### Option A: Using AWS CLI (Recommended)
+#### Verify IAM Permissions
 
 ```powershell
-aws configure
-```
-
-Enter when prompted:
-- AWS Access Key ID: `Your Access Key ID`
-- AWS Secret Access Key: `Your Secret Access Key`
-- Default region: `us-east-1` (or your preferred region)
-- Default output format: `json`
-
-#### Option B: Manual Configuration
-
-Create or edit `C:\Users\YourUsername\.aws\credentials`:
-
-```ini
-[default]
-aws_access_key_id = YOUR_ACCESS_KEY_ID
-aws_secret_access_key = YOUR_SECRET_ACCESS_KEY
-
-[dev-profile]
-aws_access_key_id = DEV_ACCESS_KEY_ID
-aws_secret_access_key = DEV_SECRET_ACCESS_KEY
-
-[prod-profile]
-aws_access_key_id = PROD_ACCESS_KEY_ID
-aws_secret_access_key = PROD_SECRET_ACCESS_KEY
-```
-
-Create or edit `C:\Users\YourUsername\.aws\config`:
-
-```ini
-[default]
-region = us-east-1
-output = json
-
-[profile dev-profile]
-region = us-east-1
-
-[profile prod-profile]
-region = ap-south-1
-```
-
-### 5. Verify AWS Credentials
-
-```powershell
+# Test AWS credentials
 aws sts get-caller-identity
 
 # Expected output:
 # {
 #     "UserId": "AIDAI...",
 #     "Account": "123456789012",
-#     "Arn": "arn:aws:iam::123456789012:user/username"
+#     "Arn": "arn:aws:iam::123456789012:user/terraform-user"
 # }
 ```
 
-### 6. Generate SSH Key Pair (Required for EC2)
+### Configure AWS Credentials
+
+#### Option 1: Using `aws configure` (Recommended)
 
 ```powershell
-# If using Windows 10/11 with OpenSSH
-ssh-keygen -t rsa -b 4096 -f $env:USERPROFILE\.ssh\id_rsa -N ""
+# Run AWS configuration wizard
+aws configure --profile default
 
-# Or use Git Bash if installed
+# When prompted, enter:
+# AWS Access Key ID: AKIA... (from your CSV)
+# AWS Secret Access Key: (paste from your CSV)
+# Default region name: us-east-1
+# Default output format: json
+```
+
+#### Option 2: Manual Configuration
+
+Create `C:\Users\YourUsername\.aws\credentials` file:
+
+```ini
+[default]
+aws_access_key_id = AKIAIOSFODNN7EXAMPLE
+aws_secret_access_key = wJalrXUtnFEMI/K7MDENG/bPxRfiCYEXAMPLEKEY
+
+[dev]
+aws_access_key_id = AKIA...DEV
+aws_secret_access_key = ...
+
+[prod]
+aws_access_key_id = AKIA...PROD
+aws_secret_access_key = ...
+```
+
+Create `C:\Users\YourUsername\.aws\config` file:
+
+```ini
+[default]
+region = us-east-1
+output = json
+
+[profile dev]
+region = us-east-1
+
+[profile prod]
+region = us-east-1
+```
+
+#### Option 3: Environment Variables
+
+```powershell
+# Set temporarily in current session
+$env:AWS_ACCESS_KEY_ID = "AKIA..."
+$env:AWS_SECRET_ACCESS_KEY = "... "
+$env:AWS_DEFAULT_REGION = "us-east-1"
+
+# Or set permanently in System Variables
+# Settings → Environment Variables → New User Variable
+```
+
+### Generate SSH Key Pair
+
+Required for EC2 instance access:
+
+```powershell
+# Using PowerShell (Windows 10/11 with OpenSSH)
+ssh-keygen -t rsa -b 4096 -f "$env:USERPROFILE\.ssh\id_rsa" -N ""
+
+# Or using Git Bash
 ssh-keygen -t rsa -b 4096 -f ~/.ssh/id_rsa -N ""
 
-# Verify public key was created
-Test-Path "$env:USERPROFILE\.ssh\id_rsa.pub"
+# Verify keys created
+Test-Path "$env:USERPROFILE\.ssh\id_rsa"      # Private key
+Test-Path "$env:USERPROFILE\.ssh\id_rsa.pub"  # Public key
+
+# View public key (you'll need this)
+Get-Content "$env:USERPROFILE\.ssh\id_rsa.pub"
 ```
 
 ---
 
-## General Terraform Workflow
+## Quick Start
 
-### Standard Terraform Commands Flow
-
-```
-Initialize → Validate → Plan → Apply → Verify → Destroy (when done)
-```
-
-### Detailed Workflow
-
-#### 1. Initialize Terraform Working Directory
-
-```bash
-cd path/to/project
-terraform init
-```
-
-**What it does:**
-- Downloads required provider plugins (AWS)
-- Creates `.terraform/` directory
-- Initializes backend if configured
-- Creates lock file (`.terraform.lock.hcl`)
-
-#### 2. Validate Configuration
-
-```bash
-terraform validate
-```
-
-**What it does:**
-- Checks syntax correctness
-- Validates configuration structure
-- Returns errors if configuration is invalid
-
-#### 3. Plan Infrastructure Changes
-
-```bash
-# View changes without applying
-terraform plan
-
-# Save plan to file for later review/apply
-terraform plan -out=tfplan
-
-# Target specific resources
-terraform plan -target=aws_instance.example
-
-# Show sensitive values
-terraform plan -json
-```
-
-**What it does:**
-- Shows what Terraform will do
-- Compares desired state (code) with current state
-- Does not make any changes
-- Returns detailed execution plan
-
-#### 4. Apply Infrastructure Changes
-
-```bash
-# Apply with interactive approval
-terraform apply
-
-# Apply without confirmation (use with caution)
-terraform apply -auto-approve
-
-# Apply previous plan
-terraform apply tfplan
-
-# Target specific resources
-terraform apply -target=aws_instance.example
-```
-
-**What it does:**
-- Creates/modifies/destroys resources
-- Updates state file
-- Prints outputs
-- Is reversible with destroy
-
-#### 5. View Current State
-
-```bash
-# Show all resources in state
-terraform show
-
-# Show resource attributes
-terraform state show aws_instance.example
-
-# List all resources
-terraform state list
-```
-
-#### 6. Destroy Infrastructure
-
-```bash
-# Remove all resources
-terraform destroy
-
-# Remove without confirmation
-terraform destroy -auto-approve
-
-# Remove specific resources
-terraform destroy -target=aws_instance.example
-```
-
----
-
-## Projects Guide
-
-### 01_EC2 - Basic EC2 with Dev/Prod Environments
-
-**Purpose**: Demonstrates single EC2 instance deployment with separate dev and prod environments using Terraform workspaces.
-
-**What it deploys:**
-- Single EC2 instance
-- Security group allowing SSH (port 22)
-- AWS key pair for SSH access
-
-**Key features:**
-- Separate variable files for dev and prod
-- Uses Terraform workspaces for state separation
-- Simple, easy-to-understand configuration
-
-#### Configuration
-
-**Edit variables:**
-
-```bash
-# For development
-cd 01_EC2
-# Edit dev.tfvars
-```
-
-Update `dev.tfvars`:
-```hcl
-# AWS settings
-# aws_region defaults to "ap-south-1" from variables.tf
-# ami_id defaults to "ami-0521bc4c70257a054" (Amazon Linux 2)
-# instance_type defaults to "t2.nano"
-
-# SSH key path - UPDATE THIS
-# public_key_path = "C:/Users/sudar/.ssh/id_rsa.pub"
-```
-
-#### Commands
+### 30-Second Deployment (Development)
 
 ```powershell
-cd 01_EC2
+# 1. Clone or navigate to project
+cd terraform-enterprise-aws
 
-# Initialize
+# 2. Initialize
 terraform init
 
-# Create development workspace
-terraform workspace new dev
-terraform workspace select dev
-
-# Plan with dev variables
+# 3. Plan
 terraform plan -var-file="dev.tfvars"
 
-# Apply to dev
+# 4. Deploy
 terraform apply -var-file="dev.tfvars" -auto-approve
 
-# View deployed resources
-terraform show
+# 5. Get outputs
 terraform output
+```
 
-# Switch to production workspace
-terraform workspace new prod
-terraform workspace select prod
+### Access Your EC2 Instance
 
-# Plan with prod variables
-terraform plan -var-file="prod.tfvars"
+```powershell
+# Get the public IP
+$ip = (terraform output -raw ec2_public_ip)
 
-# Apply to prod
-terraform apply -var-file="prod.tfvars" -auto-approve
+# Connect via SSH
+ssh -i $env:USERPROFILE\.ssh\id_rsa ec2-user@$ip
 
-# Switch back to dev
-terraform workspace select dev
+# Once connected, you're in your EC2 instance!
+```
 
-# Destroy dev resources
+### Cleanup
+
+```powershell
+# Destroy all resources
 terraform destroy -var-file="dev.tfvars" -auto-approve
-
-# Destroy prod resources
-terraform workspace select prod
-terraform destroy -var-file="prod.tfvars" -auto-approve
-```
-
-#### Output Information
-
-```bash
-# Get instance details
-terraform output instance_id
-terraform output instance_public_ip
-terraform output security_group_id
-```
-
-#### SSH into Instance
-
-```powershell
-# Get the instance public IP
-$ip = (terraform output -raw instance_public_ip)
-
-# SSH to instance (Linux/WSL)
-ssh -i C:\Users\YourUsername\.ssh\id_rsa ec2-user@$ip
 ```
 
 ---
 
-### 02_multi_ec2 - Multiple EC2 Instances
+## Setup Guide
 
-**Purpose**: Demonstrates deploying multiple EC2 instances using Terraform's count meta-argument.
-
-**What it deploys:**
-- Multiple EC2 instances (configurable)
-- Shared security group
-- Shared key pair
-
-**Key features:**
-- Uses `count` to create multiple resource instances
-- Single variable file to manage all instances
-- Dynamic resource naming
-
-#### Configuration
-
-**Edit terraform.tfvars:**
-
-```bash
-cd 02_multi_ec2
-```
-
-```hcl
-aws_access_key = "YOUR_AWS_ACCESS_KEY"
-aws_secret_key = "YOUR_AWS_SECRET_KEY"
-aws_region     = "us-east-1"
-ami_id         = "ami-0521bc4c70257a054"
-instance_type  = "t2.nano"
-public_key_path = "C:/Users/YourUsername/.ssh/id_rsa.pub"
-
-# Define instance names
-instance_names = ["web-server-1", "web-server-2", "app-server-1"]
-```
-
-#### Commands
+### Step 1: Clone or Download Project
 
 ```powershell
-cd 02_multi_ec2
+# Option A: Clone with Git
+git clone <repository-url>
+cd terraform-enterprise-aws
 
-# Initialize
-terraform init
-
-# Validate configuration
-terraform validate
-
-# Plan infrastructure
-terraform plan
-
-# Apply configuration
-terraform apply -auto-approve
-
-# View instances created
-terraform state list
-# Output: 
-# aws_instance.ec2_instances[0]
-# aws_instance.ec2_instances[1]
-# aws_instance.ec2_instances[2]
-
-# Get output information
-terraform output instance_ids
-terraform output instance_ips
-
-# Destroy specific instance
-terraform destroy -target="aws_instance.ec2_instances[0]" -auto-approve
-
-# Destroy all
-terraform destroy -auto-approve
+# Option B: Download manually and extract
+cd d:\DevOps-Projects\Terraform\Terraform-Script\terraform-enterprise-aws
 ```
 
-#### Scaling Instances
-
-To add or remove instances, modify `instance_names` in `terraform.tfvars`:
-
-```hcl
-# Add more instances
-instance_names = ["web-server-1", "web-server-2", "app-server-1", "db-server-1", "db-server-2"]
-
-# Then run:
-terraform plan
-terraform apply -auto-approve
-```
-
----
-
-### 03_Terraform_Modules - Modular EC2 and S3
-
-**Purpose**: Introduces Terraform modules concept for code reusability. Demonstrates module creation and usage.
-
-**What it deploys:**
-- EC2 instance using reusable module
-- S3 bucket using reusable module
-
-**Key features:**
-- Reusable module structure
-- Separation of concerns
-- DRY (Don't Repeat Yourself) principle
-
-#### Module Structure
-
-```
-modules/
-├── ec2_instance/
-│   ├── main.tf          # EC2, Security Group resources
-│   ├── variables.tf     # Input variables
-│   └── outputs.tf       # Module outputs
-│
-└── s3_bucket/
-    ├── main.tf          # S3 bucket resources
-    ├── variable.tf      # Input variables
-    └── output.tf        # Module outputs
-```
-
-#### Configuration
-
-**Edit terraform.tfvars:**
-
-```hcl
-aws_access_key = "YOUR_AWS_ACCESS_KEY"
-aws_secret_key = "YOUR_AWS_SECRET_KEY"
-aws_region     = "us-east-1"
-ami_id         = "ami-0521bc4c70257a054"
-instance_type  = "t2.nano"
-public_key_path = "C:/Users/YourUsername/.ssh/id_rsa.pub"
-```
-
-#### Commands
+### Step 2: Verify Prerequisites
 
 ```powershell
-cd 03_Terraform_Modules
+# Check Terraform
+terraform version     # Should show >= 1.5.0
 
-# Initialize
-terraform init
+# Check AWS CLI
+aws --version         # Should show v2.x.x
 
-# Validate
-terraform validate
+# Check Git (optional)
+git --version
 
-# Plan
-terraform plan
-
-# Apply
-terraform apply -auto-approve
-
-# View module outputs
-terraform output ec2_instance_id
-terraform output s3_bucket_name
-
-# Destroy
-terraform destroy -auto-approve
+# Check SSH
+ssh -V               # Should show OpenSSH version
 ```
 
-#### Creating Custom Modules
+### Step 3: Configure AWS Credentials
 
-To create a new module:
+```powershell
+# Option A: Interactive configuration
+aws configure
 
-```bash
-# 1. Create module directory
-mkdir -p modules/your_module
+# Option B: Verify existing credentials
+aws sts get-caller-identity
 
-# 2. Create required files
-# modules/your_module/main.tf
-# modules/your_module/variables.tf
-# modules/your_module/outputs.tf
-
-# 3. Call module in main.tf
-# module "your_module" {
-#   source = "./modules/your_module"
-#   var1 = value1
-#   var2 = value2
+# It should output something like:
+# {
+#     "UserId": "AIDAI...",
+#     "Account": "123456789012",
+#     "Arn": "arn:aws:iam::123456789012:user/terraform-user"
 # }
-
-# 4. Initialize and apply
-terraform init
-terraform apply
 ```
 
----
-
-### 04_ec2 - Simple EC2 Instance
-
-**Purpose**: Basic EC2 instance deployment with minimal configuration.
-
-**What it deploys:**
-- Single EC2 instance
-
-**Files:**
-- `main.tf`: Resource definitions
-- `input-var.tf`: Variables (instead of variables.tf)
-- `out-var.tf`: Outputs (instead of output.tf)
-
-#### Commands
+### Step 4: Create/Import SSH Key to AWS
 
 ```powershell
-cd 04_ec2
+# First, create SSH key pair (if you don't have one)
+ssh-keygen -t rsa -b 4096 -f "$env:USERPROFILE\.ssh\id_rsa" -N ""
 
-# Initialize
+# Import public key to AWS
+# Navigate to AWS Console → EC2 → Key Pairs
+# Click "Import key pair"
+# Name: devops (or match dev.tfvars key_name)
+# Public key content: (paste output of below command)
+Get-Content "$env:USERPROFILE\.ssh\id_rsa.pub" | Set-Clipboard
+
+# Paste in AWS console
+
+# Or import via AWS CLI
+aws ec2 import-key-pair --key-name devops --public-key-material "file://$env:USERPROFILE\.ssh\id_rsa.pub"
+```
+
+### Step 5: Initialize Terraform
+
+```powershell
+cd terraform-enterprise-aws
+
+# Initialize working directory
 terraform init
 
-# Plan
-terraform plan
+# Output should show:
+# Initializing the backend...
+# Initializing modules...
+# Terraform has been successfully initialized!
+```
 
-# Apply
-terraform apply -auto-approve
+### Step 6: Customize Variables for Your Environment
 
+```powershell
+# Edit development variables
+# Open dev.tfvars in your text editor
+
+# Current values:
+# region      = "us-east-1"
+# environment = "dev"
+# vpc_cidr    = "10.0.0.0/16"
+# public_subnet_cidr = "10.0.1.0/24"
+# ami         = "ami-0c1fe732b5494dc14"
+# instance_type = "t3.micro"
+# key_name    = "devops"
+# project_name = "terraform-enterprise-dev"
+
+# Modify as needed for your setup
+```
+
+### Step 7: Plan Infrastructure
+
+```powershell
+# View what Terraform will create
+terraform plan -var-file="dev.tfvars"
+
+# Output should show:
+# Plan: X to add, 0 to change, 0 to destroy.
+
+# Save plan for review/auditing
+terraform plan -var-file="dev.tfvars" -out="tfplan"
+
+# View saved plan
+terraform show tfplan
+```
+
+### Step 8: Deploy Infrastructure
+
+```powershell
+# Apply using interactive approval
+terraform apply -var-file="dev.tfvars"
+# Type 'yes' when prompted
+
+# Or apply without prompt
+terraform apply -var-file="dev.tfvars" -auto-approve
+
+# Or apply saved plan
+terraform apply tfplan
+```
+
+### Step 9: Verify Deployment
+
+```powershell
 # View outputs
 terraform output
 
-# Destroy
-terraform destroy -auto-approve
+# Get specific values
+$vpc_id = terraform output -raw vpc_id
+$public_ip = terraform output -raw ec2_public_ip
+
+# View AWS resources
+terraform state list
+terraform state show aws_instance.main
+
+# Check AWS Console
+# EC2 Dashboard → Instances → Should see "enterprise-ec2"
 ```
 
----
-
-### 05_DemoEC2 - Demo EC2 Setup
-
-**Purpose**: Demonstration EC2 setup for learning purposes.
-
-**What it deploys:**
-- Single EC2 instance with example configuration
-
-**Files:**
-- `main.tf`: Configuration
-- `input-vars.tf`: Input variables
-- `output-vars.tf`: Output variables
-
-#### Commands
+### Step 10: Access Your Instance
 
 ```powershell
-cd 05_DemoEC2
+# Get the public IP from Terraform output
+$ip = terraform output -raw ec2_public_ip
 
-# Initialize
-terraform init
+# SSH into instance (Linux/Mac/Windows with OpenSSH)
+ssh -i $env:USERPROFILE\.ssh\id_rsa ec2-user@$ip
 
-# Apply
-terraform apply -auto-approve
+# If using PuTTY (Windows):
+# Host: ec2-user@[public-ip]
+# Port: 22
+# Auth: privatekey (convert id_rsa to PPK format)
 
-# Check outputs
-terraform output
+# Once connected:
+whoami       # Should show: ec2-user
+pwd          # Should show: /home/ec2-user
+ls -la       # List files
 
-# Cleanup
-terraform destroy -auto-approve
+# Exit SSH
+exit
 ```
 
 ---
 
-### 06-Module - Multi-Module EC2 and S3
+## Configuration
 
-**Purpose**: Demonstrates modular architecture with separate EC2 and S3 modules, supporting multiple environments.
+### Environment Variables (dev.tfvars)
 
-**What it deploys:**
-- EC2 instance from module
-- S3 bucket from module
-- Support for dev/prod environments
-
-**Key features:**
-- Two separate modules (EC2 and S3)
-- Environment-based configuration
-- Workspace-based state management
-
-#### Module Structure
-
-```
-06-Module/
-├── main.tf
-├── provider.tf
-├── variable.tf
-├── output.tf
-├── dev.tfvars
-├── prod.tfvars
-├── EC2/
-│   ├── main.tf
-│   ├── variable.tf
-│   └── output.tf
-├── S3/
-│   └── (files)
-└── terraform.tfstate.d/
-    ├── dev/
-    └── prod/
-```
-
-#### Configuration
-
-**Edit dev.tfvars:**
+**File**: `dev.tfvars`
 
 ```hcl
-ami = "ami-0521bc4c70257a054"
-instance_type = "t2.nano"
-key_name = "dev-key"
-# Other environment-specific variables
-```
+# AWS Region - change if needed
+region      = "us-east-1"
 
-**Edit prod.tfvars:**
-
-```hcl
-ami = "ami-0521bc4c70257a054"
-instance_type = "t2.small"
-key_name = "prod-key"
-# Other environment-specific variables
-```
-
-#### Commands
-
-```powershell
-cd 06-Module
-
-# Initialize
-terraform init
-
-# Create or switch to dev workspace
-terraform workspace new dev
-terraform workspace select dev
-
-# Plan dev
-terraform plan -var-file="dev.tfvars"
-
-# Apply dev
-terraform apply -var-file="dev.tfvars" -auto-approve
-
-# Switch to prod
-terraform workspace new prod
-terraform workspace select prod
-
-# Plan prod
-terraform plan -var-file="prod.tfvars"
-
-# Apply prod
-terraform apply -var-file="prod.tfvars" -auto-approve
-
-# View current workspace
-terraform workspace list
-
-# Destroy dev
-terraform workspace select dev
-terraform destroy -var-file="dev.tfvars" -auto-approve
-
-# Destroy prod
-terraform workspace select prod
-terraform destroy -var-file="prod.tfvars" -auto-approve
-```
-
----
-
-### terraform-enterprise-aws - Enterprise VPC Setup
-
-**Purpose**: Complete enterprise-grade deployment with VPC, security groups, and EC2 instances. Most advanced configuration.
-
-**What it deploys:**
-- Custom VPC with public subnet
-- Security group with ingress/egress rules
-- EC2 instance within the VPC
-- Route tables and internet gateway
-
-**Key features:**
-- Modular architecture (VPC, Security Group, EC2 modules)
-- Remote state backend support
-- Multi-environment support (dev/prod)
-- Comprehensive variable management
-- Complete networking setup
-
-#### Module Structure
-
-```
-terraform-enterprise-aws/
-├── modules/
-│   ├── vpc/
-│   │   ├── main.tf        # VPC, Subnet, IGW, Route table
-│   │   ├── variables.tf
-│   │   └── outputs.tf
-│   ├── security-group/
-│   │   ├── main.tf        # Security group rules
-│   │   ├── variables.tf
-│   │   └── outputs.tf
-│   └── ec2/
-│       ├── main.tf        # EC2 instance
-│       ├── variables.tf
-│       └── outputs.tf
-├── main.tf                # Module calls
-├── provider.tf            # AWS provider
-├── versions.tf            # Version constraints
-├── variables.tf           # Root variables
-├── outputs.tf             # Root outputs
-├── locals.tf              # Local variables
-├── backend.tf             # State backend
-├── dev.tfvars             # Dev environment
-├── prod.tfvars            # Prod environment
-├── backend-dev.hcl        # Dev backend config
-└── backend-prod.hcl       # Prod backend config
-```
-
-#### Configuration
-
-**Edit dev.tfvars:**
-
-```hcl
-region     = "us-east-1"
+# Environment tag - used for cost tracking
 environment = "dev"
 
 # VPC Configuration
-vpc_cidr = "10.0.0.0/16"
-public_subnet_cidr = "10.0.1.0/24"
+vpc_cidr           = "10.0.0.0/16"      # VPC CIDR block
+public_subnet_cidr = "10.0.1.0/24"      # Public subnet CIDR
 
-# EC2 Configuration
-ami = "ami-0521bc4c70257a054"
-instance_type = "t2.nano"
-key_name = "dev-key"
+# EC2 Instance Configuration
+ami           = "ami-0c1fe732b5494dc14"  # Amazon Linux 2 AMI for us-east-1
+instance_type = "t3.micro"                # Instance type (free tier eligible)
+key_name      = "devops"                  # Name of AWS key pair (must exist)
 
-project_name = "MyProject"
+# Project Information
+project_name = "terraform-enterprise-dev"
 ```
 
-**Edit prod.tfvars:**
+### Configuration Details
+
+#### Region Selection
+
+Available AWS regions:
+- `us-east-1` - N. Virginia (most services, lowest cost)
+- `us-west-2` - Oregon
+- `eu-west-1` - Ireland
+- `ap-southeast-1` - Singapore
+- `ap-south-1` - Mumbai
+
+**Note**: Different regions have different AMI IDs for the same OS.
+
+#### VPC and Subnet CIDR Blocks
+
+Choose non-overlapping ranges if deploying multiple VPCs:
+
+| Environment | VPC CIDR | Subnet CIDR | Range |
+|-------------|----------|------------|-------|
+| Dev | 10.0.0.0/16 | 10.0.1.0/24 | 256 IPs |
+| Staging | 10.1.0.0/16 | 10.1.1.0/24 | 256 IPs |
+| Prod | 10.2.0.0/16 | 10.2.1.0/24 | 256 IPs |
+
+#### AMI Selection
+
+Find correct AMI for your region:
+
+```powershell
+# List available Amazon Linux 2 AMIs
+aws ec2 describe-images `
+  --owners amazon `
+  --filters "Name=name,Values=amzn2-ami-hvm-*-x86_64-ebs" `
+  --region us-east-1 `
+  --query 'Images[0].[ImageId,Name]' `
+  --output text
+```
+
+#### Instance Type Selection
+
+| Type | vCPU | RAM | Cost/Month | Use Case |
+|------|------|-----|-----------|----------|
+| t3.nano | 2 | 0.5GB | ~$3.80 | Development, testing |
+| t3.micro | 2 | 1GB | ~$7.59 | Free tier, light workloads |
+| t3.small | 2 | 2GB | ~$16.85 | Low traffic web servers |
+| t2.micro | 1 | 1GB | ~$9.50 | Free tier legacy |
+
+#### Key Pair Configuration
+
+```powershell
+# List available key pairs
+aws ec2 describe-key-pairs --query 'KeyPairs[].KeyName' --output table
+
+# Create new key pair (if needed)
+aws ec2 create-key-pair --key-name my-key --query 'KeyMaterial' --output text > my-key.pem
+
+# Import existing public key
+aws ec2 import-key-pair --key-name devops --public-key-material file://$env:USERPROFILE\.ssh\id_rsa.pub
+```
+
+### Production Configuration (prod.tfvars)
 
 ```hcl
-region     = "us-east-1"
+# Example production configuration
+region      = "us-east-1"
 environment = "prod"
 
-# VPC Configuration
-vpc_cidr = "10.1.0.0/16"
-public_subnet_cidr = "10.1.1.0/24"
+# Production uses larger CIDR blocks and subnets
+vpc_cidr           = "10.100.0.0/16"
+public_subnet_cidr = "10.100.1.0/24"
 
-# EC2 Configuration
-ami = "ami-0521bc4c70257a054"
-instance_type = "t2.small"
-key_name = "prod-key"
+# Larger, more powerful instance
+ami           = "ami-0c1fe732b5494dc14"
+instance_type = "t3.small"
+key_name      = "prod-key"
 
-project_name = "MyProject"
+project_name = "terraform-enterprise-prod"
 ```
 
-#### Commands - Standard Setup
+### Updating Configuration
 
 ```powershell
-cd terraform-enterprise-aws
+# Edit variables
+code dev.tfvars
 
-# Initialize with default backend
-terraform init
+# Preview changes
+terraform plan -var-file="dev.tfvars" -out="tfplan"
 
-# Validate configuration
-terraform validate
+# Review the plan carefully
 
-# Format code (optional but recommended)
-terraform fmt -recursive
-
-# Plan infrastructure
-terraform plan -var-file="dev.tfvars"
-
-# Apply infrastructure
-terraform apply -var-file="dev.tfvars" -auto-approve
-
-# View outputs
-terraform output
-
-# Get specific output
-terraform output vpc_id
-terraform output instance_id
-terraform output instance_public_ip
-
-# Destroy infrastructure
-terraform destroy -var-file="dev.tfvars" -auto-approve
-```
-
-#### Commands - With Remote Backend (Advanced)
-
-If using S3 remote backend for state management:
-
-```powershell
-cd terraform-enterprise-aws
-
-# Initialize with dev backend (requires S3 bucket)
-terraform init -backend-config="backend-dev.hcl"
-
-# Initialize with prod backend
-terraform init -backend-config="backend-prod.hcl"
-
-# Reconfigure backend
-terraform init -migrate-state
-
-# View remote state
-terraform state list
-
-# Destroy with backend
-terraform destroy -var-file="dev.tfvars" -auto-approve
-```
-
-#### Using Saved Plans
-
-```powershell
-# Create and save a plan
-terraform plan -var-file="dev.tfvars" -out="dev.tfplan"
-
-# Verify the plan
-terraform show dev.tfplan
-
-# Apply the saved plan
-terraform apply dev.tfplan
-
-# This ensures consistency between plan and apply
-```
-
-#### VPC and Networking Details
-
-The deployed VPC includes:
-
-```
-VPC (10.0.0.0/16 or 10.1.0.0/16)
-├── Public Subnet (10.0.1.0/24 or 10.1.1.0/24)
-│   └── EC2 Instance
-│       └── Elastic IP or Public IP
-├── Internet Gateway
-└── Route Table
-    └── Route: 0.0.0.0/0 → IGW
-```
-
-Security Group allows:
-- **Inbound**: SSH (port 22) from 0.0.0.0/0
-- **Outbound**: All traffic
-
-#### Accessing the Instance
-
-```powershell
-# Get outputs
-terraform output
-
-# SSH to instance
-ssh -i C:\Users\YourUsername\.ssh\id_rsa ec2-user@<public-ip>
+# Apply if satisfied
+terraform apply tfplan
 ```
 
 ---
 
 ## Commands Reference
 
-### Essential Commands
+### Initialization Commands
 
-```bash
-# Initialize working directory
+```powershell
+# Initialize Terraform working directory
 terraform init
 
-# Validate configuration
+# Initialize with custom backend configuration
+terraform init -backend-config="backend-dev.hcl"
+
+# Reinitialize (refresh modules and providers)
+terraform init -upgrade
+
+# Initialize and skip backend configuration
+terraform init -backend=false
+```
+
+### Validation Commands
+
+```powershell
+# Validate syntax and configuration
 terraform validate
 
-# Format configuration files
+# Validate with detailed output
+terraform validate -json
+
+# Format Terraform files
 terraform fmt
 
 # Format all files recursively
 terraform fmt -recursive
 
-# Create execution plan
+# Check formatting without changes
+terraform fmt -check
+```
+
+### Planning Commands
+
+```powershell
+# Create execution plan (shows what will happen)
 terraform plan
 
-# Plan with specific variables
+# Plan with specific variables file
 terraform plan -var-file="dev.tfvars"
 
 # Save plan to file
-terraform plan -out=tfplan
+terraform plan -var-file="dev.tfvars" -out="tfplan"
 
-# Apply changes
-terraform apply
+# Plan for destroy
+terraform plan -destroy -var-file="dev.tfvars"
 
-# Apply without confirmation
-terraform apply -auto-approve
+# Target specific resource
+terraform plan -target=aws_instance.main -var-file="dev.tfvars"
 
-# Apply saved plan
-terraform apply tfplan
+# Show detailed plan
+terraform plan -var-file="dev.tfvars" | Out-File plan.txt
 
-# Apply with specific variables
+# Get plan as JSON
+terraform plan -var-file="dev.tfvars" -json
+```
+
+### Apply Commands
+
+```powershell
+# Apply with interactive approval
+terraform apply -var-file="dev.tfvars"
+# Type 'yes' to confirm
+
+# Apply without asking for confirmation (use carefully!)
 terraform apply -var-file="dev.tfvars" -auto-approve
 
+# Apply saved plan (always safe, as plan is reviewed)
+terraform apply tfplan
+
+# Apply targeting specific resource
+terraform apply -target=aws_instance.main -var-file="dev.tfvars" -auto-approve
+
+# Refresh state and apply
+terraform apply -refresh=true -var-file="dev.tfvars" -auto-approve
+```
+
+### State Commands
+
+```powershell
 # Show current state
 terraform show
 
-# Destroy infrastructure
-terraform destroy
+# Show specific resource state
+terraform state show aws_instance.main
 
-# Destroy without confirmation
-terraform destroy -auto-approve
-
-# Destroy with variables
-terraform destroy -var-file="dev.tfvars" -auto-approve
-```
-
-### State Management Commands
-
-```bash
-# List resources in state
+# List all resources in state
 terraform state list
 
-# Show specific resource
-terraform state show aws_instance.example
-
 # Remove resource from state (without destroying)
-terraform state rm aws_instance.example
+terraform state rm aws_instance.main
 
-# Pull remote state locally
+# Pull state from backend
 terraform state pull
 
-# Push local state to remote
-terraform state push
+# Push state to backend
+terraform state push state.json
 
-# Force unlock state (use with caution)
-terraform force-unlock LOCK_ID
+# Refresh state (sync with actual AWS)
+terraform refresh -var-file="dev.tfvars"
+
+# View state as JSON
+terraform state pull | ConvertFrom-Json | ConvertTo-Json
 ```
 
-### Workspace Commands
+### Output Commands
 
-```bash
-# List workspaces
+```powershell
+# Display all outputs
+terraform output
+
+# Display specific output
+terraform output ec2_public_ip
+
+# Display in raw format (no JSON)
+terraform output -raw ec2_public_ip
+
+# Export outputs as JSON
+terraform output -json | Out-File outputs.json
+
+# Get into variable
+$ip = (terraform output -raw ec2_public_ip)
+$vpc = (terraform output -raw vpc_id)
+```
+
+### Destroy Commands
+
+```powershell
+# Destroy with confirmation prompt
+terraform destroy -var-file="dev.tfvars"
+# Type 'yes' to confirm
+
+# Destroy without confirmation (use with caution!)
+terraform destroy -var-file="dev.tfvars" -auto-approve
+
+# Destroy specific resource
+terraform destroy -target=aws_instance.main -var-file="dev.tfvars" -auto-approve
+
+# Plan destroy without actually destroying
+terraform plan -destroy -var-file="dev.tfvars"
+```
+
+### Workspace Commands (for multiple environments)
+
+```powershell
+# List all workspaces
 terraform workspace list
 
 # Create new workspace
-terraform workspace new workspace-name
+terraform workspace new prod
 
 # Select workspace
-terraform workspace select workspace-name
+terraform workspace select prod
 
 # Delete workspace
-terraform workspace delete workspace-name
+terraform workspace delete staging
 
 # Show current workspace
 terraform workspace show
 ```
 
-### Output and Variable Commands
+### Module Commands
 
-```bash
-# Display all outputs
-terraform output
+```powershell
+# Get/download modules
+terraform get
 
-# Display specific output
-terraform output output_name
+# Update modules to latest version
+terraform get -update
 
-# Display output in raw format (no JSON formatting)
-terraform output -raw output_name
+# Show module dependencies
+terraform graph | Out-File infrastructure.dot
 
-# List all variables
-terraform var-file="vars.tfvars"
-
-# Validate variables
-terraform validate
+# Get module source info
+terraform get -help
 ```
 
-### Debugging Commands
+### Debug Commands
 
-```bash
+```powershell
 # Enable debug logging
 $env:TF_LOG = "DEBUG"
-terraform plan
-
-# Save debug output to file
 $env:TF_LOG_PATH = "terraform.log"
+
+# Run terraform command
+terraform plan -var-file="dev.tfvars"
+
+# View debug logs
+Get-Content terraform.log
 
 # Disable debug logging
 $env:TF_LOG = ""
-
-# Show detailed plan in JSON
-terraform plan -json
-
-# Graph infrastructure dependencies
-terraform graph
-
-# Validate JSON syntax
-terraform validate
+Remove-Item env:TF_LOG_PATH
 ```
 
 ### Advanced Commands
 
-```bash
-# Target specific resources (plan only specific resources)
-terraform plan -target=aws_instance.example
-
-# Apply to specific resources only
-terraform apply -target=aws_instance.example -auto-approve
-
-# Refresh state (sync with actual infrastructure)
-terraform refresh
-
-# Import existing infrastructure
-terraform import aws_instance.example i-1234567890abcdef0
+```powershell
+# Import existing AWS resource
+terraform import aws_instance.main i-1234567890abcdef0
 
 # Taint resource (mark for recreation)
-terraform taint aws_instance.example
+terraform taint aws_instance.main
 
 # Untaint resource
-terraform untaint aws_instance.example
+terraform untaint aws_instance.main
 
-# Terraform version
+# Refresh state (sync with AWS without changes)
+terraform refresh
+
+# Force unlock state lock
+terraform force-unlock LOCK_ID
+
+# Validate JSON syntax
+terraform validate
+
+# Check Terraform version
 terraform version
 
-# Get module source
-terraform get
+# Get help for any command
+terraform help
+terraform apply -help
+```
 
-# Update modules
-terraform get -update
+---
+
+## Modules Documentation
+
+### VPC Module
+
+**Location**: `modules/vpc/`
+
+**Purpose**: Creates VPC networking infrastructure
+
+**Resources Created**:
+- AWS VPC
+- Public Subnet
+- Internet Gateway
+- Route Table
+- Route Table Association
+
+**Configuration**:
+
+```hcl
+module "vpc" {
+  source = "./modules/vpc"
+  
+  vpc_cidr           = "10.0.0.0/16"
+  public_subnet_cidr = "10.0.1.0/24"
+}
+```
+
+**Variables**:
+
+| Variable | Type | Required | Default | Description |
+|----------|------|----------|---------|-------------|
+| `vpc_cidr` | string | Yes | - | CIDR block for VPC |
+| `public_subnet_cidr` | string | Yes | - | CIDR block for public subnet |
+
+**Outputs**:
+
+```hcl
+output "vpc_id" {
+  value = aws_vpc.main.id
+  description = "VPC ID"
+}
+
+output "public_subnet_id" {
+  value = aws_subnet.public.id
+  description = "Public subnet ID"
+}
+```
+
+**Module Code**:
+
+```hcl
+# modules/vpc/main.tf
+resource "aws_vpc" "main" {
+  cidr_block = var.vpc_cidr
+  tags = {
+    Name = "enterprise-vpc"
+  }
+}
+
+resource "aws_subnet" "public" {
+  vpc_id                  = aws_vpc.main.id
+  cidr_block              = var.public_subnet_cidr
+  map_public_ip_on_launch = true
+}
+
+resource "aws_internet_gateway" "main" {
+  vpc_id = aws_vpc.main.id
+}
+
+resource "aws_route_table" "public" {
+  vpc_id = aws_vpc.main.id
+  route {
+    cidr_block      = "0.0.0.0/0"
+    gateway_id      = aws_internet_gateway.main.id
+  }
+}
+
+resource "aws_route_table_association" "public" {
+  subnet_id      = aws_subnet.public.id
+  route_table_id = aws_route_table.public.id
+}
+```
+
+---
+
+### Security Group Module
+
+**Location**: `modules/security-group/`
+
+**Purpose**: Creates security group with ingress/egress rules
+
+**Resources Created**:
+- AWS Security Group
+- Ingress Rule (SSH)
+- Egress Rule (All Traffic)
+
+**Configuration**:
+
+```hcl
+module "security_group" {
+  source = "./modules/security-group"
+  
+  vpc_id = module.vpc.vpc_id
+}
+```
+
+**Variables**:
+
+| Variable | Type | Required | Default | Description |
+|----------|------|----------|---------|-------------|
+| `vpc_id` | string | Yes | - | VPC ID for security group |
+
+**Outputs**:
+
+```hcl
+output "sg_id" {
+  value = aws_security_group.main.id
+  description = "Security group ID"
+}
+```
+
+**Module Code**:
+
+```hcl
+# modules/security-group/main.tf
+resource "aws_security_group" "main" {
+  name   = "enterprise-sg"
+  vpc_id = var.vpc_id
+
+  # Allow SSH
+  ingress {
+    from_port   = 22
+    to_port     = 22
+    protocol    = "tcp"
+    cidr_blocks = ["0.0.0.0/0"]
+  }
+
+  # Allow all outbound traffic
+  egress {
+    from_port   = 0
+    to_port     = 0
+    protocol    = "-1"
+    cidr_blocks = ["0.0.0.0/0"]
+  }
+
+  tags = {
+    Name = "enterprise-sg"
+  }
+}
+```
+
+**Security Note**: The SSH rule allows `0.0.0.0/0` (anywhere). For production, restrict to your IP:
+
+```hcl
+ingress {
+  from_port   = 22
+  to_port     = 22
+  protocol    = "tcp"
+  cidr_blocks = ["YOUR_IP/32"]  # Your office IP
+}
+```
+
+---
+
+### EC2 Module
+
+**Location**: `modules/ec2/`
+
+**Purpose**: Creates EC2 instance with compute resources
+
+**Resources Created**:
+- AWS EC2 Instance
+- EBS Root Volume
+- Elastic IP (optional, automatic public IP in public subnet)
+
+**Configuration**:
+
+```hcl
+module "ec2" {
+  source = "./modules/ec2"
+  
+  ami           = "ami-0c1fe732b5494dc14"
+  instance_type = "t3.micro"
+  key_name      = "devops"
+  subnet_id     = module.vpc.public_subnet_id
+  sg_id         = module.security_group.sg_id
+}
+```
+
+**Variables**:
+
+| Variable | Type | Required | Default | Description |
+|----------|------|----------|---------|-------------|
+| `ami` | string | Yes | - | AMI ID |
+| `instance_type` | string | Yes | - | EC2 instance type |
+| `key_name` | string | Yes | - | AWS key pair name |
+| `subnet_id` | string | Yes | - | Subnet ID |
+| `sg_id` | string | Yes | - | Security group ID |
+
+**Outputs**:
+
+```hcl
+output "instance_id" {
+  value = aws_instance.main.id
+  description = "Instance ID"
+}
+
+output "public_ip" {
+  value = aws_instance.main.public_ip
+  description = "Public IP address"
+}
+```
+
+**Module Code**:
+
+```hcl
+# modules/ec2/main.tf
+resource "aws_instance" "main" {
+  ami                    = var.ami
+  instance_type          = var.instance_type
+  key_name               = var.key_name
+  subnet_id              = var.subnet_id
+  vpc_security_group_ids = [var.sg_id]
+
+  root_block_device {
+    volume_size           = 20
+    volume_type           = "gp2"
+    delete_on_termination = true
+  }
+
+  tags = {
+    Name = "enterprise-ec2"
+  }
+
+  # Wait for instance to be fully ready
+  provisioner "remote-exec" {
+    inline = ["echo Connected"]
+
+    connection {
+      type        = "ssh"
+      user        = "ec2-user"
+      private_key = file(var.private_key_path)
+      host        = self.public_ip
+    }
+  }
+}
+```
+
+---
+
+## Environment Management
+
+### Working with Multiple Environments
+
+#### Development Environment
+
+```powershell
+# Initialize for development
+terraform init
+
+# Plan for dev
+terraform plan -var-file="dev.tfvars" -out="dev.tfplan"
+
+# Review plan
+terraform show dev.tfplan
+
+# Apply to dev
+terraform apply dev.tfplan
+
+# Verify
+terraform output -var-file="dev.tfvars"
+```
+
+#### Production Environment
+
+```powershell
+# Plan for production
+terraform plan -var-file="prod.tfvars" -out="prod.tfplan"
+
+# Careful review of production changes
+terraform show prod.tfplan | Out-File prod-plan.txt
+
+# Apply with explicit approval
+terraform apply prod.tfplan
+
+# Save outputs for documentation
+terraform output -var-file="prod.tfvars" | Out-File prod-outputs.txt
+```
+
+### Switching Between Environments
+
+```powershell
+# Check current workspace
+terraform workspace show
+
+# List available workspaces
+terraform workspace list
+
+# Create workspace for prod
+terraform workspace new prod
+
+# Switch to prod workspace
+terraform workspace select prod
+
+# Apply to prod
+terraform apply -var-file="prod.tfvars" -auto-approve
+
+# Switch back to default (dev)
+terraform workspace select default
+```
+
+### Environment Differences
+
+| Aspect | Dev | Prod |
+|--------|-----|------|
+| Instance Type | t3.micro | t3.small |
+| VPC | 10.0.0.0/16 | 10.100.0.0/16 |
+| Subnet | 10.0.1.0/24 | 10.100.1.0/24 |
+| Cost/Month | ~$7.59 | ~$16.85 |
+| Monitoring | Basic | CloudWatch |
+| Backup | Optional | Required |
+
+### Creating New Environment
+
+To add a staging environment:
+
+1. Create `staging.tfvars`:
+
+```hcl
+region      = "us-east-1"
+environment = "staging"
+vpc_cidr    = "10.50.0.0/16"
+public_subnet_cidr = "10.50.1.0/24"
+ami         = "ami-0c1fe732b5494dc14"
+instance_type = "t3.micro"
+key_name    = "staging-key"
+project_name = "terraform-enterprise-staging"
+```
+
+2. Deploy:
+
+```powershell
+terraform plan -var-file="staging.tfvars" -out="staging.tfplan"
+terraform apply staging.tfplan
 ```
 
 ---
@@ -1206,81 +1327,56 @@ terraform get -update
 
 ### Understanding Terraform State
 
-**State File**: A JSON file that Terraform creates to track deployed resources and their current configuration. Essential for Terraform to know what exists and what to change.
+**State** is how Terraform keeps track of your infrastructure. It maps your configuration to real AWS resources.
 
-**State File Location**: `terraform.tfstate` in the project directory
+**State File**: `terraform.tfstate` (JSON format)
 
-### State File Security
-
-⚠️ **IMPORTANT**: State files contain sensitive information!
-
-**Never:**
-- Commit state files to Git
-- Share state files publicly
-- Expose state files in logs
-
-**Always:**
-- Add `terraform.tfstate*` to `.gitignore`
-- Use remote backends for production
-- Encrypt state files at rest
-- Restrict access to state files
-- Use state locking mechanisms
-
-#### .gitignore for Terraform
-
-```bash
-# Create or update .gitignore
-# Ignore state files
-terraform.tfstate
-terraform.tfstate.*
-terraform.tfstate.backup
-
-# Ignore plan files
-*.tfplan
-
-# Ignore cached modules
-.terraform/
-
-# Ignore crash log files
-crash.log
-crash.*.log
-
-# Ignore lock files (optional - some teams commit these)
-# .terraform.lock.hcl
-
-# Ignore override files
-override.tf
-override.tf.json
-*_override.tf
-*_override.tf.json
-
-# Ignore CLI configuration files
-.terraformrc
-terraform.rc
-
-# Ignore IDE files
-.vscode/
-.idea/
-*.swp
-*.swo
-
-# Ignore OS files
-.DS_Store
-Thumbs.db
+```json
+{
+  "version": 4,
+  "terraform_version": "1.5.0",
+  "serial": 123,
+  "lineage": "...",
+  "outputs": {
+    "ec2_public_ip": {
+      "value": "54.123.45.67"
+    }
+  },
+  "resources": [
+    {
+      "type": "aws_instance",
+      "name": "main",
+      "instances": [...]
+    }
+  ]
+}
 ```
 
-### Remote State Backends
+### Local State (Default)
 
-For production:
+**Location**: `terraform.tfstate` in project directory
 
-#### S3 Backend Example
+**Pros**:
+- Easy to get started
+- No additional setup
+- Suitable for learning/dev
+
+**Cons**:
+- Not suitable for teams
+- No locking mechanism
+- Risk of data loss
+- Credentials exposed
+
+### Remote State with S3 Backend
+
+**Setup S3 Backend**:
 
 ```hcl
 # backend.tf
 terraform {
   backend "s3" {
     bucket         = "my-terraform-state"
-    key            = "prod/terraform.tfstate"
+    key            = "dev/terraform.tfstate"
     region         = "us-east-1"
     encrypt        = true
     dynamodb_table = "terraform-locks"
@@ -1288,274 +1384,93 @@ terraform {
 }
 ```
 
-Commands:
+**Commands**:
 
-```bash
+```powershell
 # Initialize with S3 backend
-terraform init
+terraform init -backend-config="backend-dev.hcl"
 
-# Migrate local state to S3
+# Migrate state to S3
 terraform init -migrate-state
 
-# View S3 state
+# View remote state
+terraform state list
+
+# Pull remote state (create local copy)
+terraform state pull > local.state
+
+# Push to remote
+terraform state push local.state
+```
+
+### State Backup and Recovery
+
+```powershell
+# Backup current state
+Copy-Item terraform.tfstate "backup-$(Get-Date -Format 'yyyyMMdd-HHmmss').tfstate"
+
+# List backups
+Get-ChildItem backup-*.tfstate
+
+# Restore from backup
+Copy-Item "backup-20240214-120000.tfstate" terraform.tfstate
+
+# Verify restoration
 terraform state list
 ```
 
-### State Commands
+### State Security Best Practices
 
+⚠️ **IMPORTANT**: State files contain sensitive information!
+
+1. **Never commit to Git**:
 ```bash
-# Backup state
-Copy-Item terraform.tfstate terraform.tfstate.backup
+# .gitignore
+terraform.tfstate
+terraform.tfstate.*
+.terraform/
+```
 
-# Restore from backup
-Copy-Item terraform.tfstate.backup terraform.tfstate
+2. **Encrypt state at rest**:
+```hcl
+terraform {
+  backend "s3" {
+    encrypt = true  # Enable encryption
+  }
+}
+```
 
-# Pull state from backend
-terraform state pull > state.backup
+3. **Restrict access**:
+```bash
+# File permissions
+chmod 600 terraform.tfstate
 
-# Push state to backend
-terraform state push state.backup
+# S3 bucket policy
+# (Block public access, allow only specific IAM users)
+```
 
-# Lock state manually
-terraform state lock
+4. **Use state locking**:
+```hcl
+terraform {
+  backend "s3" {
+    dynamodb_table = "terraform-locks"  # Prevents concurrent operations
+  }
+}
+```
 
-# Unlock state
+### State Locking
+
+Prevents concurrent modifications:
+
+```powershell
+# View locks
+terraform state list
+
+# Force unlock (use with caution)
 terraform force-unlock LOCK_ID
-```
 
----
-
-## Best Practices
-
-### 1. Code Organization
-
-```bash
-# Organize by environment
-├── dev/
-│   ├── main.tf
-│   ├── variables.tfvars
-│   └── terraform.tfstate
-└── prod/
-    ├── main.tf
-    ├── variables.tfvars
-    └── terraform.tfstate
-
-# Or organize by component
-├── modules/
-│   ├── vpc/
-│   ├── ec2/
-│   └── security-group/
-├── dev/
-├── prod/
-└── staging/
-```
-
-### 2. Variable Management
-
-**Good practices:**
-- Use `terraform.tfvars` for sensitive values
-- Use `.tfvars.example` for documentation
-- Define all variables with descriptions
-- Use appropriate variable types
-- Provide sensible defaults
-
-**Example:**
-
-```hcl
-variable "instance_type" {
-  type        = string
-  description = "AWS EC2 instance type"
-  default     = "t2.nano"
-
-  validation {
-    condition     = can(regex("^t[2-3]\\.", var.instance_type))
-    error_message = "Instance type must be t2 or t3 family."
-  }
-}
-```
-
-### 3. Resource Naming
-
-```hcl
-# Use consistent naming convention
-resource "aws_instance" "web_server" {
-  ami           = var.ami_id
-  instance_type = var.instance_type
-  
-  tags = {
-    Name        = "${var.environment}-web-server"
-    Environment = var.environment
-    Project     = var.project_name
-    CreatedBy   = "Terraform"
-    CreatedDate = timestamp()
-  }
-}
-```
-
-### 4. Module Best Practices
-
-```hcl
-# Module structure
-modules/
-└── my_module/
-    ├── main.tf              # Resources
-    ├── variables.tf         # Input variables with descriptions
-    ├── outputs.tf           # Output values with descriptions
-    ├── locals.tf            # Local calculations
-    └── README.md            # Module documentation
-
-# Module call with clear intent
-module "web_server" {
-  source = "./modules/ec2"
-  
-  # Required variables
-  instance_type = var.instance_type
-  key_name      = var.key_name
-  
-  # Optional with defaults
-  environment = var.environment
-  tags        = local.common_tags
-}
-```
-
-### 5. Documentation
-
-Create module READMEs:
-
-```markdown
-# EC2 Module
-
-## Overview
-This module creates an EC2 instance with... with optional... 
-
-## Usage
-```hcl
-module "web_server" {
-  source = "./modules/ec2"
-  
-  ami           = var.ami_id
-  instance_type = "t2.micro"
-  key_name      = var.key_name
-}
-```
-
-## Variables
-| Name | Type | Required | Description |
-|------|------|----------|-------------|
-| ami | string | yes | AMI ID |
-| instance_type | string | no | Instance type (default: t2.nano) |
-
-## Outputs
-| Name | Description |
-|------|-------------|
-| instance_id | EC2 instance ID |
-| public_ip | Public IP address |
-```
-
-### 6. Version Control
-
-```bash
-# Initialize git
-git init
-
-# Add .gitignore
-echo "terraform.tfstate*" > .gitignore
-echo ".terraform/" >> .gitignore
-echo "crash.log" >> .gitignore
-
-# Commit code
-git add -A
-git commit -m "Initial Terraform configuration"
-
-# Push to repository
-git push origin main
-```
-
-### 7. Pre-deployment Checklist
-
-Before applying:
-
-```bash
-# ✓ Validate syntax
-terraform validate
-
-# ✓ Format code
-terraform fmt -recursive
-
-# ✓ Review plan thoroughly
-terraform plan -var-file="dev.tfvars"
-
-# ✓ Check for hardcoded secrets
-grep -r "password\|secret\|token" .
-
-# ✓ Verify variables
-cat dev.tfvars
-
-# ✓ Check state file is not committed
-grep -l "terraform.tfstate" .git/
-
-# ✓ Review changes with team
-# (share plan output for review)
-
-# ✓ Apply
-terraform apply tfplan
-```
-
-### 8. Monitoring and Logging
-
-```bash
-# Enable debug logging
-$env:TF_LOG = "DEBUG"
-$env:TF_LOG_PATH = "terraform.log"
-
-# Run any command
-terraform plan
-
-# Review logs
-Get-Content terraform.log
-
-# Disable logging
-$env:TF_LOG = ""
-```
-
-### 9. Backup Strategy
-
-```bash
-# Backup before destroying
-Copy-Item terraform.tfstate "backup-$(Get-Date -Format 'yyyyMMdd-HHmmss').tfstate"
-
-# Backup state to cloud storage
-Copy-Item terraform.tfstate s3://backup-bucket/
-
-# Version control backups
-git add backup-*.tfstate
-git commit -m "State backup"
-```
-
-### 10. Cost Management
-
-```hcl
-# Use cost-effective instance types
-variable "instance_type" {
-  type    = string
-  default = "t2.nano"  # Free tier eligible
-}
-
-# Stop instances when not needed
-resource "aws_instance" "dev_server" {
-  disable_api_termination = false
-  
-  tags = {
-    Schedule = "stop-after-hours"
-  }
-}
-
-# Use spot instances for non-critical workloads
-resource "aws_instance" "batch_processor" {
-  instance_market_options {
-    market_type = "spot"
-  }
-}
+# Lock timeout
+# (Terraform automatically times out locks after 15 minutes)
 ```
 
 ---
@@ -1566,137 +1481,146 @@ resource "aws_instance" "batch_processor" {
 
 #### 1. AWS Credentials Not Found
 
-**Error**: `Error: error configuring Terraform AWS Provider: no valid credential sources found`
+**Error**:
+```
+Error: error configuring Terraform AWS Provider: no valid credential sources found
+```
 
 **Solution**:
 
 ```powershell
-# Check credentials file exists
+# Check if credentials file exists
 Test-Path "$env:USERPROFILE\.aws\credentials"
 
-# Re-configure AWS CLI
+# Configure AWS CLI
 aws configure
+
+# Or set environment variables
+$env:AWS_ACCESS_KEY_ID = "YOUR_KEY"
+$env:AWS_SECRET_ACCESS_KEY = "YOUR_SECRET"
 
 # Verify credentials
 aws sts get-caller-identity
-
-# Or set environment variables temporarily
-$env:AWS_ACCESS_KEY_ID = "YOUR_KEY"
-$env:AWS_SECRET_ACCESS_KEY = "YOUR_SECRET"
-$env:AWS_DEFAULT_REGION = "us-east-1"
 ```
 
-#### 2. Provider Plugin Not Found
+#### 2. Invalid AMI ID for Region
 
-**Error**: `Error: Unsupported block type`
+**Error**:
+```
+Error: InvalidAMIID.NotFound: 'ami-0c1fe732b5494dc14' does not exist
+```
 
 **Solution**:
 
 ```powershell
-# Reinitialize
-terraform init
+# Find correct AMI for your region
+aws ec2 describe-images `
+  --owners amazon `
+  --filters "Name=name,Values=amzn2-ami-hvm-*-x86_64-ebs" `
+  --query 'Images[0].ImageId' `
+  --output text
 
-# Update provider
-terraform init -upgrade
-
-# Check lock file
-Get-Content .terraform.lock.hcl
+# Update dev.tfvars with new AMI ID
 ```
 
-#### 3. State Lock Timeout
+#### 3. Key Pair Not Found
 
-**Error**: `Error: Error: error acquiring the state lock`
+**Error**:
+```
+Error: InvalidKeyPair.NotFound: The key pair 'devops' does not exist
+```
 
 **Solution**:
 
 ```powershell
-# List locks
+# List available key pairs
+aws ec2 describe-key-pairs --query 'KeyPairs[].KeyName' --output table
+
+# Import your public key
+aws ec2 import-key-pair `
+  --key-name devops `
+  --public-key-material file://$env:USERPROFILE\.ssh\id_rsa.pub
+
+# Update dev.tfvars to match key name
+```
+
+#### 4. Insufficient Permissions
+
+**Error**:
+```
+Error: User: arn:aws:iam::123456789012:user/username is not authorized
+```
+
+**Solution**:
+
+1. Check current user:
+```powershell
+aws sts get-caller-identity
+```
+
+2. Verify IAM permissions:
+   - Go to AWS Console → IAM → Users
+   - Click your username
+   - Check Permissions tab
+   - Should have: EC2, VPC, S3 FullAccess
+
+3. Add missing policies:
+```bash
+# In AWS Console:
+# Attach Policies:
+# - AmazonEC2FullAccess
+# - AmazonVPCFullAccess
+# - AmazonS3FullAccess
+```
+
+#### 5. State Lock Timeout
+
+**Error**:
+```
+Error: Error acquiring the state lock: ConditionalCheckFailedException
+```
+
+**Solution**:
+
+```powershell
+# Check for locks
 terraform state list
 
-# Force unlock (use carefully)
+# Wait 15 minutes (auto-timeout)
+
+# Or force unlock (dangerous!)
 terraform force-unlock LOCK_ID
-
-# Or remove lock file
-Remove-Item .terraform.tfstate.lock.info -Force
 ```
 
-#### 4. SSH Key Not Found
+#### 6. SSH Connection Refused
 
-**Error**: `Error: file() file not found`
+**Error**:
+```
+ssh: connect to host 54.123.45.67 port 22: Connection refused
+```
 
 **Solution**:
 
 ```powershell
-# Check key exists
-Test-Path "C:\Users\YourUsername\.ssh\id_rsa.pub"
+# Wait 1-2 minutes for instance to fully boot
+Start-Sleep -Seconds 120
 
-# If not, generate new key
-ssh-keygen -t rsa -b 4096 -f $env:USERPROFILE\.ssh\id_rsa -N ""
+# Verify security group allows SSH
+aws ec2 describe-security-groups --query 'SecurityGroups[0].IpPermissions'
 
-# Update in variables/tfvars
-# public_key_path = "C:/Users/YourUsername/.ssh/id_rsa.pub"
+# Try SSH with verbose output
+ssh -vvv -i $env:USERPROFILE\.ssh\id_rsa ec2-user@IP
+
+# Verify SSH key permissions
+icacls "$env:USERPROFILE\.ssh\id_rsa"
 ```
 
-#### 5. Insufficient Permissions
+#### 7. Terraform Version Mismatch
 
-**Error**: `Error: User: arn:aws:iam::... is not authorized`
-
-**Solution**:
-
-```bash
-# Check IAM permissions
-aws iam get-user
-
-# Attach required policies
-# 1. Go to AWS Console
-# 2. IAM > Users > Select user
-# 3. Attach these policies:
-#    - AmazonEC2FullAccess
-#    - AmazonS3FullAccess
-#    - AmazonVPCFullAccess
-
-# Verify permissions
-aws ec2 describe-instances
+**Error**:
 ```
-
-#### 6. Resource Already Exists
-
-**Error**: `Error: error creating security group: InvalidGroup.Duplicate`
-
-**Solution**:
-
-```powershell
-# Import existing resource
-terraform import aws_security_group.existing sg-12345678
-
-# Or destroy and recreate
-terraform destroy -auto-approve
-terraform apply -auto-approve
-
-# Or use terraform import
-terraform import aws_instance.example i-1234567890abcdef0
+Error: Unsupported Terraform Version
 ```
-
-#### 7. Invalid AMI ID
-
-**Error**: `Error: Error: InvalidAMIID.NotFound`
-
-**Solution**:
-
-```bash
-# Find correct AMI ID for your region
-aws ec2 describe-images --owners amazon --filters "Name=name,Values=amzn2-ami-hvm-*" --query 'Images[0].ImageId' --region us-east-1
-
-# Update in variables
-ami_id = "ami-0521bc4c70257a054"
-
-# List all available Amazon Linux 2 AMIs
-aws ec2 describe-images --owners amazon --filters "Name=name,Values=amzn2-ami-hvm-*" --region us-east-1 --query 'Images[].{Name:Name,ID:ImageId}' --output table
-```
-
-#### 8. Terraform Version Mismatch
-
-**Error**: `Error: Unsupported Terraform Version`
 
 **Solution**:
 
@@ -1704,365 +1628,606 @@ aws ec2 describe-images --owners amazon --filters "Name=name,Values=amzn2-ami-hv
 # Check current version
 terraform version
 
-# Update Terraform
+# Upgrade Terraform
 choco upgrade terraform
 
-# Install specific version
-choco install terraform --version 1.5.0
-
-# Update version constraint in versions.tf
-# required_version = ">= 1.5.0"
+# Or install specific version
+choco install terraform --version=1.5.0
 
 # Reinitialize
-terraform init
+terraform init -upgrade
 ```
 
-#### 9. Invalid Configuration
+#### 8. Module Not Found
 
-**Error**: `Error: Invalid or missing required argument`
-
-**Solution**:
-
-```bash
-# Validate configuration
-terraform validate
-
-# Check for typos in resource names
-Get-Content main.tf
-
-# Review required variables
-Get-Content variables.tf
-
-# Check tfvars file
-Get-Content terraform.tfvars
-
-# Run validate with verbose
-terraform validate -json
+**Error**:
 ```
-
-#### 10. State File Corruption
-
-**Error**: `Error: Failed to read state file`
+Error: Failed to read module directory
+```
 
 **Solution**:
 
 ```powershell
-# Restore from backup
-Copy-Item terraform.tfstate.backup terraform.tfstate
+# Check module paths
+Get-ChildItem modules -Recurse -Include main.tf
 
-# Backup state
-Copy-Item terraform.tfstate terraform.tfstate.corrupted
+# Verify module source paths in main.tf
+# Should be: source = "./modules/vpc"
 
-# Refresh state (sync with actual infrastructure)
-terraform refresh
-
-# Pull state from remote backend
-terraform state pull > state.json
-
-# Push state
-terraform state push state.json
+# Reinitialize modules
+terraform get -update
+terraform init -upgrade
 ```
 
-### Debugging Commands
+#### 9. Invalid Resource Configuration
 
-```bash
-# Enable verbose logging
+**Error**:
+```
+Error: Missing required argument
+```
+
+**Solution**:
+
+```powershell
+# Validate configuration
+terraform validate
+
+# Check for typos
+Get-Content variables.tf
+
+# Review module calls in main.tf
+# Ensure all required variables are provided
+```
+
+#### 10. Out of Capacity
+
+**Error**:
+```
+Error: InsufficientInstanceCapacity: We currently do not have sufficient capacity
+```
+
+**Solution**:
+
+```powershell
+# Change instance type or region
+# Edit dev.tfvars
+
+# Option 1: Try different instance type
+instance_type = "t2.micro"
+
+# Option 2: Try different region
+region = "us-west-2"
+
+# Option 3: Wait and retry
+Start-Sleep -Seconds 300
+terraform apply -var-file="dev.tfvars" -auto-approve
+```
+
+### Debug Logging
+
+```powershell
+# Enable detailed logging
 $env:TF_LOG = "DEBUG"
-
-# Save to file
-$env:TF_LOG_PATH = "terraform-debug.log"
+$env:TF_LOG_PATH = "terraform.log"
 
 # Run any terraform command
-terraform plan
+terraform plan -var-file="dev.tfvars"
 
-# View logs
-Get-Content terraform-debug.log
+# Review logs
+Get-Content terraform.log | Select-String "error" -Context 3
 
 # Disable logging
 $env:TF_LOG = ""
-
-# JSON output for programmatic parsing
-terraform plan -json | convertfrom-json
-
-# Check resource dependencies
-terraform graph | Out-File graph.dot
-
-# Show all interpolations
-terraform console
+Remove-Item terraform.log
 ```
 
 ### Getting Help
 
 1. **Official Documentation**: https://www.terraform.io/docs
-2. **AWS Documentation**: https://docs.aws.amazon.com
-3. **Terraform Registry**: https://registry.terraform.io
-4. **Community Forums**: https://discuss.hashicorp.com/c/terraform/
-5. **Stack Overflow**: Tag with `terraform`
-6. **GitHub Issues**: https://github.com/hashicorp/terraform/issues
+2. **AWS Documentation**: https://docs.aws.amazon.com/
+3. **Terraform Registry**: https://registry.terraform.io/
+4. **Stack Overflow**: Use tag `terraform`
+5. **GitHub Issues**: https://github.com/hashicorp/terraform/issues
 
 ---
 
-## Quick Start Examples
+## Best Practices
 
-### Deploy Single EC2 Instance (Fastest Way)
+### 1. Variable Management
+
+**DO**:
+```hcl
+# Use descriptive variable names
+variable "instance_type" {
+  type        = string
+  description = "EC2 instance type"
+  default     = "t3.micro"
+}
+
+# Provide help text
+variable "environment" {
+  type        = string
+  description = "Environment name (dev, staging, prod)"
+}
+
+# Use validation
+variable "instance_type" {
+  type = string
+  
+  validation {
+    condition     = can(regex("^t[2-3]", var.instance_type))
+    error_message = "Must be t2 or t3 instance family"
+  }
+}
+```
+
+**DON'T**:
+```hcl
+# Don't use unclear names
+variable "it" {
+  type = string
+}
+
+# Don't omit defaults
+variable "region" {
+  type = string
+}
+
+# Don't accept all values
+variable "type" {
+  type = string
+}
+```
+
+### 2. Resource Tagging
+
+Always tag resources for cost tracking:
+
+```hcl
+provider "aws" {
+  region = var.region
+  
+  default_tags {
+    tags = {
+      Project     = var.project_name
+      Environment = var.environment
+      ManagedBy   = "Terraform"
+      Owner       = "DevOps"
+      CostCenter  = "IT"
+      CreatedDate = timestamp()
+    }
+  }
+}
+```
+
+### 3. Module Organization
+
+```
+modules/
+├── vpc/
+│   ├── main.tf           # Resources
+│   ├── variables.tf      # Inputs with descriptions
+│   ├── outputs.tf        # Outputs with descriptions
+│   └── README.md         # Module documentation
+├── security-group/
+└── ec2/
+```
+
+### 4. Version Management
+
+```hcl
+# Always specify versions
+terraform {
+  required_version = ">= 1.5.0"
+  
+  required_providers {
+    aws = {
+      source  = "hashicorp/aws"
+      version = "~> 5.0"
+    }
+  }
+}
+```
+
+### 5. Code Formatting
 
 ```powershell
-cd 04_ec2
-terraform init
+# Format before committing
+terraform fmt -recursive
+
+# Check formatting
+terraform fmt -check -recursive
+
+# Use consistent indentation (2 spaces)
+```
+
+### 6. State Security
+
+```bash
+# .gitignore
+terraform.tfstate
+terraform.tfstate.*
+.terraform/
+crash.log
+*.tfplan
+```
+
+### 7. Pre-Deployment Checklist
+
+```powershell
+# ✓ Validate syntax
 terraform validate
-terraform plan
-terraform apply -auto-approve
 
-# Get public IP
-terraform output instance_public_ip
+# ✓ Format code
+terraform fmt -recursive
 
-# Clean up
-terraform destroy -auto-approve
+# ✓ Plan and save
+terraform plan -var-file="dev.tfvars" -out="tfplan"
+
+# ✓ Review plan
+terraform show tfplan | Out-File plan-review.txt
+
+# ✓ Check for hardcoded secrets
+grep -r "password\|secret\|token" . | grep -v ".git"
+
+# ✓ Verify variables
+# Review dev.tfvars for correctness
+
+# ✓ Apply
+terraform apply tfplan
 ```
 
-### Deploy Multiple EC2 Instances
+### 8. Documentation
 
-```powershell
-cd 02_multi_ec2
+```markdown
+# VPC Module
 
-# Edit terraform.tfvars
-# instance_names = ["web-1", "web-2", "app-1"]
+## Overview
+Creates a VPC with public subnet configured for high availability.
 
-terraform init
-terraform apply -auto-approve
-
-# View all instances
-terraform state list
-
-# Destroy all
-terraform destroy -auto-approve
+## Usage
+```hcl
+module "vpc" {
+  source = "./modules/vpc"
+  vpc_cidr = "10.0.0.0/16"
+  public_subnet_cidr = "10.0.1.0/24"
+}
 ```
 
-### Deploy Enterprise VPC Setup
+## Variables
+| Name | Type | Required |
+|------|------|----------|
+| vpc_cidr | string | Yes |
+| public_subnet_cidr | string | Yes |
+
+## Outputs
+| Name | Description |
+|------|-------------|
+| vpc_id | VPC ID |
+| subnet_id | Subnet ID |
+```
+
+### 9. Backup and Recovery
 
 ```powershell
-cd terraform-enterprise-aws
+# Backup state before major changes
+Copy-Item terraform.tfstate "backup-$(Get-Date -Format 'yyyyMMdd-HHmmss').tfstate"
 
-# Initialize
-terraform init
+# Backup outputs
+terraform output | Out-File outputs-backup.json
 
-# Plan
-terraform plan -var-file="dev.tfvars"
+# Test recovery procedures
+# (in non-prod environment)
+```
 
-# Apply
-terraform apply -var-file="dev.tfvars" -auto-approve
+### 10. Cost Optimization
 
-# Get outputs
-terraform output
+```hcl
+# Use free-tier eligible resources
+variable "instance_type" {
+  type    = string
+  default = "t2.micro"  # Free tier
+}
 
-# Destroy
-terraform destroy -var-file="dev.tfvars" -auto-approve
+# Use spot instances for non-critical workloads
+resource "aws_instance" "batch" {
+  instance_market_options {
+    market_type = "spot"
+  }
+}
+
+# Set appropriate retention periods
+resource "aws_cloudwatch_log_group" "example" {
+  retention_in_days = 7  # Reduce storage costs
+}
+
+# Tag for cost allocation
+tags = {
+  CostCenter = "IT"
+  Billable   = "true"
+}
 ```
 
 ---
 
-## Security Considerations
+## Security
 
-### 1. Never Hardcode Credentials
+### 1. Credentials Management
 
-❌ **Bad:**
+**DO**:
+```powershell
+# Use AWS CLI configured credentials
+aws configure
+
+# Use environment variables (temporary)
+$env:AWS_ACCESS_KEY_ID = "..."
+$env:AWS_SECRET_ACCESS_KEY = "..."
+
+# Use IAM roles (for EC2)
+```
+
+**DON'T**:
 ```hcl
+# ❌ Never hardcode credentials
 provider "aws" {
-  access_key = "AKIAIOSFODNN7EXAMPLE"
-  secret_key = "wJalrXUtnFEMI/K7MDENG/bPxRfiCYEXAMPLEKEY"
+  access_key = "AKIA..."
+  secret_key = "..."
+}
+
+# ❌ Never commit .aws/credentials to Git
+```
+
+### 2. Security Group Rules
+
+**DO** (Production):
+```hcl
+# Restrict to specific IPs
+ingress {
+  from_port   = 22
+  to_port     = 22
+  protocol    = "tcp"
+  cidr_blocks = ["203.0.113.0/24"]  # Your office IP
 }
 ```
 
-✅ **Good:**
+**DON'T** (Development only):
 ```hcl
-provider "aws" {
-  region = var.aws_region
-  # Uses AWS_ACCESS_KEY_ID and AWS_SECRET_ACCESS_KEY env vars
-  # Or credentials from ~/.aws/credentials
+# ❌ Open to world (dev only)
+ingress {
+  from_port   = 22
+  to_port     = 22
+  protocol    = "tcp"
+  cidr_blocks = ["0.0.0.0/0"]
 }
 ```
 
-### 2. Encrypt Sensitive Variables
+### 3. SSH Key Security
 
-Use AWS Secrets Manager or Parameter Store:
+```powershell
+# Protect private key
+icacls "$env:USERPROFILE\.ssh\id_rsa" /inheritance:r /grant:r "%USERNAME%:F"
+
+# Never share private key
+# Never commit private key to Git
+
+# Rotate keys regularly
+# Create new key pair and import to AWS
+```
+
+### 4. State File Encryption
 
 ```hcl
-data "aws_secretsmanager_secret_version" "db_password" {
+terraform {
+  backend "s3" {
+    bucket         = "my-state-bucket"
+    encrypt        = true      # Enable encryption
+    key            = "prod/terraform.tfstate"
+    region         = "us-east-1"
+    dynamodb_table = "terraform-locks"
+  }
+}
+```
+
+### 5. IAM Principle of Least Privilege
+
+Instead of full access:
+
+```hcl
+# Only grant needed permissions
+{
+  "Version": "2012-10-17",
+  "Statement": [
+    {
+      "Effect": "Allow",
+      "Action": [
+        "ec2:RunInstances",
+        "ec2:TerminateInstances",
+        "ec2:DescribeInstances",
+        "vpc:CreateSecurityGroup",
+        "vpc:DeleteSecurityGroup"
+      ],
+      "Resource": "*"
+    }
+  ]
+}
+```
+
+### 6. Audit and Logging
+
+```powershell
+# Enable CloudTrail for API auditing
+# Enable VPC Flow Logs for network monitoring
+# Enable CloudWatch for instance monitoring
+
+# Review Terraform logs
+$env:TF_LOG = "DEBUG"
+```
+
+### 7. Secrets Management
+
+For sensitive data (DB passwords, API keys):
+
+```powershell
+# Option 1: AWS Secrets Manager
+data "aws_secretsmanager_secret_version" "password" {
   secret_id = "prod/db/password"
 }
 
-resource "aws_db_instance" "database" {
-  db_password = jsondecode(data.aws_secretsmanager_secret_version.db_password.secret_string)["password"]
+# Option 2: AWS Systems Manager Parameter Store
+data "aws_ssm_parameter" "api_key" {
+  name = "/prod/api/key"
 }
+
+# Option 3: HashiCorp Vault
 ```
 
-### 3. Use IAM Roles Instead of Keys
+### 8. Network Security
 
 ```hcl
-# For EC2 instances - use IAM instance profile
-resource "aws_instance" "web_server" {
-  iam_instance_profile = aws_iam_instance_profile.web_profile.name
+# Use VPC for isolation
+resource "aws_vpc" "main" {
+  cidr_block = "10.0.0.0/16"
 }
 
-resource "aws_iam_instance_profile" "web_profile" {
-  role = aws_iam_role.web_role.name
+# Use private subnets for sensitive resources
+resource "aws_subnet" "private" {
+  cidr_block              = "10.0.2.0/24"
+  map_public_ip_on_launch = false
 }
 
-resource "aws_iam_role" "web_role" {
-  assume_role_policy = jsonencode({
-    Version = "2012-10-17"
-    Statement = [{
-      Effect = "Allow"
-      Principal = {
-        Service = "ec2.amazonaws.com"
-      }
-      Action = "sts:AssumeRole"
-    }]
-  })
+# Use NAT Gateway for private outbound traffic
+resource "aws_nat_gateway" "main" {
+  allocation_id = aws_eip.nat.id
+  subnet_id     = aws_subnet.public.id
 }
 ```
 
-### 4. Use Separate AWS Accounts for Different Environments
+### 9. Regular Updates
 
-- Development account
-- Staging account  
-- Production account
+```powershell
+# Update Terraform
+choco upgrade terraform
 
-Each with dedicated IAM users and separate credentials.
+# Update AWS provider
+terraform init -upgrade
 
-### 5. Enable MFA for Root Account and Privileged Users
-
-### 6. Audit Trail and Logging
-
-Enable AWS CloudTrail for all API calls:
-
-```hcl
-resource "aws_cloudtrail" "main" {
-  depends_on                = [aws_s3_bucket_policy.bucket_policy]
-  name                      = "main"
-  s3_bucket_name            = aws_s3_bucket.log_bucket.id
-  include_global_events     = true
-  is_multi_region_trail     = true
-  enable_log_file_validation = true
-  depends_on               = [aws_s3_bucket_policy.bucket_policy]
-}
+# Review security advisories
+# - Terraform Security Advisories: https://www.terraform.io/security
+# - AWS Security Advisories: https://aws.amazon.com/security/
 ```
 
-### 7. Regular Security Scanning
+### 10. Access Control
 
 ```bash
-# Use Checkov for Terraform security scanning
-pip install checkov
-checkov -d . --framework terraform
+# Restrict .aws/credentials permissions
+chmod 600 ~/.aws/credentials
 
-# Use TFLint for code quality
-choco install tflint
-tflint --init
-tflint
+# Use separate credentials for dev/prod
+# Use different AWS accounts for different environments
+
+# Enable MFA for root account
+# Enable MFA for privileged users
 ```
-
----
-
-## Performance Tips
-
-### 1. Parallel Operations
-
-```bash
-# Increase parallelism (default is 10)
-terraform apply -parallelism=50
-```
-
-### 2. Use Target to Apply Specific Resources
-
-```bash
-# Faster than full apply when testing single resource
-terraform apply -target=aws_instance.web_server -auto-approve
-```
-
-### 3. Use Local Caching
-
-```bash
-# Keep .terraform directory in version control (large but speeds up init)
-git add .terraform.lock.hcl
-```
-
-### 4. Optimize Module Structure
-
-Keep modules focused and minimal:
-
-```hcl
-# Good - focused module
-module "ec2_instance" {
-  source = "./modules/ec2"
-  # 5-10 variables
-}
-
-# Bad - module does too much
-module "everything" {
-  source = "./modules/all"
-  # 50+ variables
-}
-```
-
-### 5. Use Data Sources for Read-Only Operations
-
-```hcl
-# Efficient - no state tracking
-data "aws_ami" "amazon_linux" {
-  most_recent = true
-  owners      = ["amazon"]
-}
-
-# Use in resource
-resource "aws_instance" "server" {
-  ami = data.aws_ami.amazon_linux.id
-}
-```
-
----
-
-## File Change Summary
-
-If you're starting fresh with this workspace, here's what you need to do for each project:
-
-| Project | Action | Required Changes |
-|---------|--------|------------------|
-| 01_EC2 | Dev/Prod Deploy | Update public_key_path in .tfvars |
-| 02_multi_ec2 | Multi-instance | Update credentials and key path in terraform.tfvars |
-| 03_Terraform_Modules | Modular Deploy | Update credentials and key path in terraform.tfvars |
-| 04_ec2 | Quick Deploy | Update key path in input-var.tf |
-| 05_DemoEC2 | Demo | Update key path in input-vars.tf |
-| 06-Module | Modular Env | Update credentials in dev/prod.tfvars |
-| terraform-enterprise-aws | Enterprise | Update credentials in provider.tf or env vars |
 
 ---
 
 ## Additional Resources
 
-- **Terraform Language**: https://www.terraform.io/language
-- **AWS Provider**: https://registry.terraform.io/providers/hashicorp/aws/latest
-- **Terraform Best Practices**: https://www.terraform.io/cloud-docs/recommended-practices
-- **AWS Free Tier**: https://aws.amazon.com/free
-- **SSH Key Setup**: https://docs.github.com/en/authentication/connecting-to-github-with-ssh
+### Documentation
+- **Terraform Docs**: https://www.terraform.io/docs
+- **AWS Docs**: https://docs.aws.amazon.com/
+- **Terraform Registry**: https://registry.terraform.io/
+
+### Learning
+- **Terraform Learning**: https://learn.hashicorp.com/terraform
+- **AWS Learning**: https://aws.amazon.com/training/
+- **Free Tier**: https://aws.amazon.com/free/
+
+### Tools
+- **Terraform Cloud**: https://app.terraform.io/
+- **Terraform Enterprise**: https://www.hashicorp.com/products/terraform/enterprise
+- **AWS CloudFormation**: https://aws.amazon.com/cloudformation/
+
+### Community
+- **Terraform Discuss**: https://discuss.hashicorp.com/
+- **Stack Overflow**: Tag `terraform`
+- **GitHub Discussions**: https://github.com/hashicorp/terraform/discussions
 
 ---
 
-## Support and Contributing
+## Changelog
 
-For issues with specific projects:
+### Version 1.0.0 (Current)
+- ✅ VPC module with public subnet
+- ✅ Security group module with SSH access
+- ✅ EC2 module with instance configuration
+- ✅ Dev and prod environment support
+- ✅ State backend configuration
+- ✅ GitHub Actions CI/CD workflow
+- ✅ Comprehensive documentation
 
-1. Check the Troubleshooting section above
-2. Run `terraform validate` to check for syntax errors
-3. Enable debug logging with `$env:TF_LOG = "DEBUG"`
-4. Check AWS console to verify resource limits
-5. Review CloudTrail logs for AWS API errors
+---
+
+## Support
+
+For issues or questions:
+
+1. **Check Troubleshooting** section above
+2. **Run validation**: `terraform validate`
+3. **Enable debug logging**: `$env:TF_LOG = "DEBUG"`
+4. **Check AWS Console** for actual resource status
+5. **Review CloudTrail logs** for API errors
+
+---
+
+## License
+
+This Terraform configuration is provided as-is for educational and development purposes.
+
+---
+
+## Summary
+
+### Files Overview
+
+| File | Purpose | Edit When |
+|------|---------|-----------|
+| `main.tf` | Module orchestration | Adding/removing modules |
+| `provider.tf` | AWS authentication | Changing region/tags |
+| `versions.tf` | Version constraints | Upgrading Terraform |
+| `variables.tf` | Variable definitions | Adding new inputs |
+| `outputs.tf` | Output values | Exposing new data |
+| `locals.tf` | Local values | Computing reusable values |
+| `backend.tf` | State backend | Changing state storage |
+| `dev.tfvars` | Dev configuration | Before dev deployment |
+| `prod.tfvars` | Prod configuration | Before prod deployment |
+
+### Quick Commands
+
+```powershell
+terraform init                              # Initialize
+terraform validate                          # Check syntax
+terraform plan -var-file="dev.tfvars"      # Preview changes
+terraform apply -var-file="dev.tfvars"     # Deploy
+terraform output                            # View outputs
+terraform destroy -var-file="dev.tfvars"   # Cleanup
+```
+
+### Deployment Flow
+
+```
+1. terraform init              (Initialize)
+2. terraform validate          (Validate)
+3. terraform plan -out=tfplan  (Plan)
+4. terraform show tfplan       (Review)
+5. terraform apply tfplan      (Deploy)
+6. terraform output            (Verify)
+```
 
 ---
 
 **Last Updated**: February 14, 2026
-**Terraform Version**: >= 1.5.0
-**AWS Provider Version**: ~> 5.0
+**Terraform Version Required**: >= 1.5.0
+**AWS Provider Version Required**: ~> 5.0
 
----
-
-*This README covers all aspects of deploying and managing AWS infrastructure with Terraform. Refer to official documentation for the latest updates and features.*
+For the latest updates and information, refer to the official Terraform and AWS documentation.

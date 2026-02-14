@@ -1,0 +1,155 @@
+# Local .terraform directories
+**/.terraform/*
+
+# .tfstate files
+*.tfstate
+*.tfstate.*
+*.tfstate.backup
+
+# Crash log files
+crash.log
+crash.*.log
+
+# Exclude all .tfvars files, which contain sensitive data
+*.tfvars
+*.tfvars.json
+!example.tfvars
+
+# Ignore override files
+override.tf
+override.tf.json
+*_override.tf
+*_override.tf.json
+
+# Include override files you do want tracked
+!example_override.tf
+
+# Ignore CLI configuration files
+.terraformrc
+terraform.rc
+.terraform.lock.hcl
+
+# Ignore plan files
+*.tfplan
+
+# Ignore lock files for modules (optional - comment out if you want to track)
+# .terraform.lock.hcl
+
+# IDE and Editor files
+.vscode/
+.idea/
+*.swp
+*.swo
+*~
+.DS_Store
+Thumbs.db
+*.iml
+*.sublime-project
+*.sublime-workspace
+.netrc
+
+# Environment files
+.env
+.env.local
+.env.*.local
+
+# OS specific files
+.DS_Store
+.DS_Store?
+._*
+.Spotlight-V100
+.Trashes
+ehthumbs.db
+Thumbs.db
+*.iso
+
+# Logs
+*.log
+*.logs
+debug.log
+terraform.log
+terraform-debug.log
+*.tar.gz
+
+# Temporary files
+tmp/
+temp/
+*.tmp
+*.bak
+*.backup
+
+# SSH keys
+id_rsa
+id_rsa.pub
+*.pem
+*.key
+*.pub
+
+# AWS credentials
+.aws/
+credentials
+.aws/credentials
+
+# Backup files
+*.backup
+backup-*.tfstate
+backup-*/
+state-backup/
+
+# Terraform Cloud/Enterprise
+.terraformignore
+.terraform.cloud
+
+# JSON outputs
+outputs.json
+*.output.json
+
+# Test files
+test-fixtures/
+*.test.tf
+
+# CI/CD files
+.github/workflows/*.log
+*.md.bak
+
+# Python files (if using Python scripts)
+__pycache__/
+*.py[cod]
+*$py.class
+*.so
+venv/
+ENV/
+env/
+
+# Node modules (if using Node for scripts)
+node_modules/
+npm-debug.log
+yarn-error.log
+
+# Docker files (if using Docker)
+Dockerfile
+docker-compose.yml
+.dockerignore
+
+# Misc files
+*.jar
+.gradle/
+build/
+dist/
+.pytest_cache/
+.coverage
+htmlcov/
+
+# IDE specific directories
+.vscode/*
+!.vscode/settings.json
+!.vscode/tasks.json
+!.vscode/launch.json
+!.vscode/extensions.json
+.idea/*
+!.idea/.gitignore
+*.code-workspace
+
+# Custom project files
+docs/generated/
+*.tmp.json
